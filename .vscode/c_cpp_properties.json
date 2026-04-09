@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Zephyr",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [],
+            "compilerPath": "${workspaceFolder}/../../zephyr-sdk-0.17.4/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "macos-gcc-arm",
+            "compileCommands": [
+                "${workspaceFolder}/build/compile_commands.json"
+            ]
+        }
+    ],
+    "version": 4
+}

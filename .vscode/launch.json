@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug",
+            "type": "cortex-debug",
+            "request": "attach",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/zephyr/zephyr.elf",
+            "servertype": "external",
+            "gdbTarget": "localhost:3333",
+        }
+    ]
+}

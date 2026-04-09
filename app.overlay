@@ -1,0 +1,152 @@
+/ {
+    aliases {
+        battery-led = &led;
+        battery-display = &display;
+        battery-key = &key0;
+        battery-adc = &voltage;
+
+        left-key = &key1;
+        right-key = &key2;
+
+        action-key = &key3;
+
+        barometer = &bmp180;
+        magnetometer = &qmc5883l;
+        gnss = &gnss_nmea_generic;
+        display = &ssd1306;
+    };
+
+    display: zephyr,user {
+        display-gpios = <&gpio0_lo 10 GPIO_ACTIVE_HIGH>,
+                        <&gpio0_lo 11 GPIO_ACTIVE_HIGH>,
+                        <&gpio0_lo 12 GPIO_ACTIVE_HIGH>,
+                        <&gpio0_lo 13 GPIO_ACTIVE_HIGH>,
+                        <&gpio0_lo 14 GPIO_ACTIVE_HIGH>,
+                        <&gpio0_lo 15 GPIO_ACTIVE_HIGH>;
+    };
+
+    leds: leds {
+        compatible = "gpio-leds";
+
+        led: led {
+            gpios = <&gpio0_lo 3 GPIO_ACTIVE_HIGH>;
+        };
+    };
+
+    keys: keys {
+        compatible = "gpio-keys";
+
+        key0: key0 {
+            gpios = <&gpio0_lo 21 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+        };
+
+        key1: key1 {
+            gpios = <&gpio0_lo 20 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+        };
+
+        key2: key2 {
+            gpios = <&gpio0_lo 19 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+        };
+
+        key3: key3 {
+            gpios = <&gpio0_lo 18 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+        };
+    };
+
+    voltage: voltage {
+        compatible = "voltage-divider";
+        io-channels = <&adc 0>;
+        output-ohms = <100>;
+        full-ohms = <570>;
+    };
+
+    pico_temp: pico-temp {
+        compatible = "raspberrypi,pico-temp";
+        io-channels = <&adc 4>;
+    };
+};
+
+&pinctrl {
+    uart1_pins: uart1_pins {
+        group1 {
+            pinmux = <UART1_TX_P8>;
+        };
+
+        group2 {
+            pinmux = <UART1_RX_P9>;
+            input-enable;
+        };
+    };
+
+    adc0_pins: adc0_pins {
+        group1 {
+            pinmux = <ADC_CH0_P26>;
+            bias-disable;
+            input-enable;
+        };
+    };
+};
+
+&adc {
+    status = "okay";
+
+    pinctrl-0 = <&adc0_pins>;
+    pinctrl-names = "default";
+
+    #address-cells = <1>;
+    #size-cells = <0>;
+
+    adc0: channel@0 {
+        reg = <0>;
+        zephyr,gain = "ADC_GAIN_1";
+        zephyr,reference = "ADC_REF_INTERNAL";
+        zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+        zephyr,resolution = <12>;
+    };
+};
+
+&uart1 {
+    status = "okay";
+    current-speed = <9600>;
+
+    pinctrl-0 = <&uart1_pins>;
+    pinctrl-names = "default";
+
+    gnss_nmea_generic: gnss-nmea-generic {
+        compatible = "gnss-nmea-generic";
+    };
+};
+
+&pico_i2c {
+    bmp180: bmp180@77 {
+        compatible = "bosch,bmp180";
+        reg = <0x77>;
+
+        osr-press = <3>;
+    };
+
+    qmc5883l: qmc5883l@d {
+        compatible = "qst,qmc5883l";
+        reg = <0x0d>;
+
+        int-gpios = <&gpio0_lo 22 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+    };
+
+    ssd1306: ssd1306@3c {
+        compatible = "solomon,ssd1306";
+        reg = <0x3c>;
+
+        width = <128>;
+        height = <32>;
+
+        segment-offset = <0>;
+        page-offset = <0>;
+        display-offset = <0>;
+        multiplex-ratio = <63>;
+        prechargep = <0x22>;
+    };
+};
+
+&die_temp {
+    status = "okay";
+};

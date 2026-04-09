@@ -1,0 +1,8 @@
+description: "Charlieplexing 7 Segment Display"
+compatible: "Ch7SegDisplay"
+include: base.yaml
+
+properties:
+  gpios:
+    type: phandle-array
+    required: true
