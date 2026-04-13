@@ -14,5 +14,6 @@
         "printk",
         "raspberrypi",
         "UAOL"
-    ]
+    ],
+    "cortex-debug.variableUseNaturalFormat": false
 }

@@ -10,7 +10,7 @@
 
         action-key = &key3;
 
-        barometer = &bmp180;
+        altimeter = &bmp180;
         magnetometer = &qmc5883l;
         gnss = &gnss_nmea_generic;
         display = &ssd1306;
@@ -78,6 +78,20 @@
         };
     };
 
+    i2c0_pins: i2c0_pins {
+        group1 {
+            pinmux = <I2C0_SDA_P4>;
+            bias-pull-up;
+            input-enable;
+        };
+
+        group2 {
+            pinmux = <I2C0_SCL_P5>;
+            bias-pull-up;
+            input-enable;
+        };
+    };
+
     adc0_pins: adc0_pins {
         group1 {
             pinmux = <ADC_CH0_P26>;
@@ -107,7 +121,7 @@
 
 &uart1 {
     status = "okay";
-    current-speed = <9600>;
+    current-speed = <115200>;
 
     pinctrl-0 = <&uart1_pins>;
     pinctrl-names = "default";
@@ -117,7 +131,13 @@
     };
 };
 
-&pico_i2c {
+&i2c0 {
+    status = "okay";
+    clock-frequency = <100000>;
+
+    pinctrl-0 = <&i2c0_pins>;
+    pinctrl-names = "default";
+
     bmp180: bmp180@77 {
         compatible = "bosch,bmp180";
         reg = <0x77>;
