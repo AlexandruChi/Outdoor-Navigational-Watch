@@ -124,7 +124,6 @@ static void keypadTask(void) {
             case STATE_PRESS:
                 if (now - batteryKeyTime >= KEY_HOLD_TIME_MS) {
                     batteryKeyState = STATE_HELD;
-                    printf("Battery key held\n");
                     k_event_post(&batteryKeyEvent, KEY_EVT_BATTERY_ON);
                 } else if (!bHold) {
                     batteryKeyState = STATE_RELEASE;
@@ -135,7 +134,6 @@ static void keypadTask(void) {
             case STATE_HELD:
                 if (!bHold) {
                     batteryKeyState = STATE_RELEASE;
-                    printf("Battery key released\n");
                     k_event_post(&batteryKeyEvent, KEY_EVT_BATTERY_OFF);
                 }
                 break;

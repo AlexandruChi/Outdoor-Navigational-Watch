@@ -4,7 +4,6 @@
 static void segmentDisplayTask(void);
 
 K_THREAD_DEFINE(segmentDisplayThread, 1024, segmentDisplayTask, NULL, NULL, NULL, 1, 0, 0);
-K_MUTEX_DEFINE(segmentDisplayAccessMutex);
 K_MUTEX_DEFINE(segmentDisplayDataMutex);
 
 #define DISPLAY_NODE DT_ALIAS(battery_display)
@@ -71,41 +70,32 @@ static inline uint32_t toSegments(uint8_t d2, uint8_t s1, uint8_t d1, uint8_t s0
     return s0 << DOT_0_OFFSET | s1 << DOT_1_OFFSET | digitSegments[d0] << DIGIT_0_OFFSET | digitSegments[d1] << DIGIT_1_OFFSET | digitSegments[d2] << DIGIT_2_OFFSET;
 }
 
-static volatile uint8_t val = 0;
+static volatile bool display = 0;
+static volatile uint16_t val = 0;
 static volatile uint8_t frm = 0;
 
-bool setSegmentDisplayOn(k_timeout_t timeout) {
-    return k_mutex_lock(&segmentDisplayAccessMutex, timeout) == 0;
+void setSegmentDisplayOn() {
+    k_mutex_lock(&segmentDisplayDataMutex, K_FOREVER);
+    display = 1;
+    k_mutex_unlock(&segmentDisplayDataMutex);
 }
 
 void setSegmentDisplayOff() {
-    k_mutex_unlock(&segmentDisplayAccessMutex);
+    k_mutex_lock(&segmentDisplayDataMutex, K_FOREVER);
+    display = 0;
+    k_mutex_unlock(&segmentDisplayDataMutex);
 }
 
-void setSegmentDisplayValue(uint8_t value) {
+void setSegmentDisplayValue(uint16_t value) {
     k_mutex_lock(&segmentDisplayDataMutex, K_FOREVER);
     val = value;
     k_mutex_unlock(&segmentDisplayDataMutex);
-}
-
-uint8_t getSegmentDisplayValue() {
-    k_mutex_lock(&segmentDisplayDataMutex, K_FOREVER);
-    uint8_t value = val;
-    k_mutex_unlock(&segmentDisplayDataMutex);
-    return value;
 }
 
 void setSegmentDisplayFormat(uint8_t format) {
     k_mutex_lock(&segmentDisplayDataMutex, K_FOREVER);
     frm = format & 0b11;
     k_mutex_unlock(&segmentDisplayDataMutex);
-}
-
-uint8_t getSegmentDisplayFormat() {
-    k_mutex_lock(&segmentDisplayDataMutex, K_FOREVER);
-    uint8_t format = frm & 0b11;
-    k_mutex_unlock(&segmentDisplayDataMutex);
-    return format;
 }
 
 static void segmentDisplayTask(void) {
@@ -119,7 +109,7 @@ static void segmentDisplayTask(void) {
     int64_t next_wake_time = 0;
     
     uint32_t segments = 0;
-    uint8_t value = 0;
+    uint16_t value = 0;
     uint8_t format = 0;
 
     while (1) {
@@ -135,52 +125,42 @@ static void segmentDisplayTask(void) {
                 }
             }
         } else {
+            k_sleep(K_TIMEOUT_ABS_TICKS(next_wake_time));
             setSegment(SEGMENT_NONE);
-            k_sleep(K_MSEC(100));
-            
+            k_sleep(K_MSEC(10));
         }
 
-        if (k_mutex_lock(&segmentDisplayAccessMutex, K_NO_WAIT) == 0) {
-            k_mutex_unlock(&segmentDisplayAccessMutex);
-            segments = 0;
-        } else {
-            if (k_mutex_lock(&segmentDisplayDataMutex, K_TICKS(1)) == 0) {
-                if (
-                    getSegmentDisplayValue() != value ||
-                    getSegmentDisplayFormat() != format
-                ) {
-                    
-                    value = getSegmentDisplayValue();
-                    format = getSegmentDisplayFormat();
+        if (!k_mutex_lock(&segmentDisplayDataMutex, K_TIMEOUT_ABS_TICKS(next_wake_time))) {
+            if (display) {
+                value = val;
+                format = frm;
 
-                    k_mutex_unlock(&segmentDisplayDataMutex);
+                k_mutex_unlock(&segmentDisplayDataMutex);
 
-                    printf("got data\n");
+                uint8_t d0 = value % 10;
+                uint8_t d1 = (value / 10) % 10;
+                uint8_t d2 = (value / 100) % 10;
 
-                    uint8_t d0 = value % 10;
-                    uint8_t d1 = (value / 10) % 10;
-                    uint8_t d2 = (value / 100) % 10;
+                switch (format) {
+                    case DISPLAY_DOT_NONE:
+                        segments = toSegments(d2 ? d2 : DIGIT_NONE, DOT_OFF, (d1 || d2) ? d1 : DIGIT_NONE, DOT_OFF, d0);
+                        break;
 
-                    switch (format) {
-                        case DISPLAY_DOT_NONE:
-                            segments = toSegments(d2 ? d2 : DIGIT_NONE, DOT_OFF, (d1 || d2) ? d1 : DIGIT_NONE, DOT_OFF, d0);
-                            break;
+                    case DISPLAY_DOT_RIGHT:
+                        segments = toSegments(d2 ? d2 : DIGIT_NONE, DOT_OFF, d1, DOT_ON, d0);
+                        break;
 
-                        case DISPLAY_DOT_RIGHT:
-                            segments = toSegments(d2 ? d2 : DIGIT_NONE, DOT_OFF, d1, DOT_ON, d0);
-                            break;
+                    case DISPLAY_DOT_LEFT:
+                        segments = toSegments(d2, DOT_ON, d1, DOT_OFF, d0);
+                        break;
 
-                        case DISPLAY_DOT_LEFT:
-                            segments = toSegments(d2, DOT_ON, d1, DOT_OFF, d0);
-                            break;
-
-                        case DISPLAY_DOT_BOTH:
-                            segments = toSegments(d2, DOT_ON, d1, DOT_ON, d0);
-                            break;
-                    }
-                } else {
-                    k_mutex_unlock(&segmentDisplayDataMutex);
+                    case DISPLAY_DOT_BOTH:
+                        segments = toSegments(d2, DOT_ON, d1, DOT_ON, d0);
+                        break;
                 }
+            } else {
+                k_mutex_unlock(&segmentDisplayDataMutex);
+                segments = 0;
             }
         }
     }
