@@ -21,7 +21,7 @@ K_EVENT_DEFINE(systemEvent);
 static const struct gpio_dt_spec batteryKey = GPIO_DT_SPEC_GET(DT_ALIAS(battery_key), gpios);
 static const struct gpio_dt_spec leftKey = GPIO_DT_SPEC_GET(DT_ALIAS(left_key), gpios);
 static const struct gpio_dt_spec rightKey = GPIO_DT_SPEC_GET(DT_ALIAS(right_key), gpios);
-static const struct gpio_dt_spec actionKey = GPIO_DT_SPEC_GET(DT_ALIAS(action_key), gpios);
+static const struct gpio_dt_spec actionKey = GPIO_DT_SPEC_GET(DT_ALIAS(compass_key), gpios);
 
 static struct gpio_callback batteryKeyCbData;
 static struct gpio_callback leftKeyCbData;

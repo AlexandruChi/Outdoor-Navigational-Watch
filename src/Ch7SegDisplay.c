@@ -1,15 +1,74 @@
-#include <zephyr/drivers/gpio.h>
 #include "Ch7SegDisplay.h"
+#include <zephyr/drivers/gpio.h>
 
 static void segmentDisplayTask(void);
 
 K_THREAD_DEFINE(segmentDisplayThread, 1024, segmentDisplayTask, NULL, NULL, NULL, 1, 0, 0);
 K_MUTEX_DEFINE(segmentDisplayDataMutex);
 
-#define DISPLAY_NODE DT_ALIAS(battery_display)
+// TODO: use atomic variable for value and atomic bit flags for on/off and format
+
+static volatile bool display = 0;
+static volatile uint16_t val = 0;
+static volatile uint8_t frm = 0;
+
+int setSegmentDisplayOn(k_timeout_t timeout) {
+    int ret = 0;
+    if ((ret = k_mutex_lock(&segmentDisplayDataMutex, timeout))) {
+        return ret;
+    }
+
+    display = 1;
+    k_mutex_unlock(&segmentDisplayDataMutex);
+    return 0;
+}
+
+int setSegmentDisplayOff(k_timeout_t timeout) {
+    int ret = 0;
+    if ((ret = k_mutex_lock(&segmentDisplayDataMutex, timeout))) {
+        return ret;
+    }
+
+    display = 0;
+    k_mutex_unlock(&segmentDisplayDataMutex);
+    return 0;
+}
+
+int isSegmentDisplayOn(bool *val, k_timeout_t timeout) {
+    int ret = 0;
+    if ((ret = k_mutex_lock(&segmentDisplayDataMutex, timeout))) {
+        return ret;
+    }
+
+    *val = display;
+    k_mutex_unlock(&segmentDisplayDataMutex);
+    return 0;
+}
+
+int setSegmentDisplayValue(uint16_t value, k_timeout_t timeout) {
+    int ret = 0;
+    if ((ret = k_mutex_lock(&segmentDisplayDataMutex, timeout))) {
+        return ret;
+    }
+    
+    val = value;
+    k_mutex_unlock(&segmentDisplayDataMutex);
+    return 0;
+}
+
+int setSegmentDisplayFormat(uint8_t format, k_timeout_t timeout) {
+    int ret = 0;
+    if ((ret = k_mutex_lock(&segmentDisplayDataMutex, timeout))) {
+        return ret;
+    }
+
+    frm = format;
+    k_mutex_unlock(&segmentDisplayDataMutex);
+    return 0;
+}
 
 static const struct gpio_dt_spec displayPins[] = {
-    DT_FOREACH_PROP_ELEM_SEP(DISPLAY_NODE, display_gpios, GPIO_DT_SPEC_GET_BY_IDX, (,))
+    DT_FOREACH_PROP_ELEM_SEP(DT_ALIAS(segment_display), gpios, GPIO_DT_SPEC_GET_BY_IDX, (,))
 };
 
 #define SEGMENT_TIME_US 500
@@ -53,7 +112,7 @@ static const uint8_t digitSegments[11] = {
     0b0000000
 };
 
-void setSegment(uint8_t segment) {
+static inline void setSegment(uint8_t segment) {
     for (size_t i = 0; i < ARRAY_SIZE(displayPins); i++) {
         gpio_pin_configure_dt(&displayPins[i], GPIO_DISCONNECTED);
     }
@@ -70,40 +129,14 @@ static inline uint32_t toSegments(uint8_t d2, uint8_t s1, uint8_t d1, uint8_t s0
     return s0 << DOT_0_OFFSET | s1 << DOT_1_OFFSET | digitSegments[d0] << DIGIT_0_OFFSET | digitSegments[d1] << DIGIT_1_OFFSET | digitSegments[d2] << DIGIT_2_OFFSET;
 }
 
-static volatile bool display = 0;
-static volatile uint16_t val = 0;
-static volatile uint8_t frm = 0;
-
-void setSegmentDisplayOn() {
-    k_mutex_lock(&segmentDisplayDataMutex, K_FOREVER);
-    display = 1;
-    k_mutex_unlock(&segmentDisplayDataMutex);
-}
-
-void setSegmentDisplayOff() {
-    k_mutex_lock(&segmentDisplayDataMutex, K_FOREVER);
-    display = 0;
-    k_mutex_unlock(&segmentDisplayDataMutex);
-}
-
-void setSegmentDisplayValue(uint16_t value) {
-    k_mutex_lock(&segmentDisplayDataMutex, K_FOREVER);
-    val = value;
-    k_mutex_unlock(&segmentDisplayDataMutex);
-}
-
-void setSegmentDisplayFormat(uint8_t format) {
-    k_mutex_lock(&segmentDisplayDataMutex, K_FOREVER);
-    frm = format & 0b11;
-    k_mutex_unlock(&segmentDisplayDataMutex);
-}
-
 static void segmentDisplayTask(void) {
     k_thread_name_set(segmentDisplayThread, "segmentDisplay");
 
     for (size_t i = 0; i < ARRAY_SIZE(displayPins); i++) {
-        gpio_pin_configure_dt(&displayPins[i], GPIO_DISCONNECTED);
+        __ASSERT(gpio_is_ready_dt(&displayPins[i]), "Display GPIO %zu not ready!", i);
     }
+
+    setSegment(SEGMENT_NONE);
 
     int64_t interval = k_us_to_ticks_near64(SEGMENT_TIME_US);
     int64_t next_wake_time = 0;
@@ -141,13 +174,26 @@ static void segmentDisplayTask(void) {
                 uint8_t d1 = (value / 10) % 10;
                 uint8_t d2 = (value / 100) % 10;
 
-                switch (format) {
+                switch (format & 0b1100) {
+                    case DISPLAY_DIGIT_ALWAYS_NONE:
+                        d1 = (d1 || d2) ? d1 : DIGIT_NONE;
+                        /* no break */
+
+                    case DISPLAY_DIGIT_ALWAYS_MIDDLE:
+                        d2 = d2 ? d2 : DIGIT_NONE;
+                        /* no break */
+
+                    case DISPLAY_DIGIT_ALWAYS_ALL:
+                        break;
+                }
+
+                switch (format & 0b11) {
                     case DISPLAY_DOT_NONE:
-                        segments = toSegments(d2 ? d2 : DIGIT_NONE, DOT_OFF, (d1 || d2) ? d1 : DIGIT_NONE, DOT_OFF, d0);
+                        segments = toSegments(d2, DOT_OFF, d1, DOT_OFF, d0);
                         break;
 
                     case DISPLAY_DOT_RIGHT:
-                        segments = toSegments(d2 ? d2 : DIGIT_NONE, DOT_OFF, d1, DOT_ON, d0);
+                        segments = toSegments(d2, DOT_OFF, d1, DOT_ON, d0);
                         break;
 
                     case DISPLAY_DOT_LEFT:

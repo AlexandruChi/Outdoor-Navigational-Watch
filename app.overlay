@@ -1,28 +1,32 @@
 / {
     aliases {
         battery-led = &led;
-        battery-display = &display;
-        battery-key = &key0;
+        segment-display = &Ch7SegDisplay;
         battery-adc = &voltage;
 
+        battery-key = &key0;
         left-key = &key1;
         right-key = &key2;
-
-        action-key = &key3;
+        compass-key = &key3;
 
         altimeter = &bmp180;
-        magnetometer = &qmc5883l;
+        compass = &qmc5883l;
         gnss = &gnss_nmea_generic;
         display = &ssd1306;
     };
 
-    display: zephyr,user {
-        display-gpios = <&gpio0_lo 10 GPIO_ACTIVE_HIGH>,
-                        <&gpio0_lo 11 GPIO_ACTIVE_HIGH>,
-                        <&gpio0_lo 12 GPIO_ACTIVE_HIGH>,
-                        <&gpio0_lo 13 GPIO_ACTIVE_HIGH>,
-                        <&gpio0_lo 14 GPIO_ACTIVE_HIGH>,
-                        <&gpio0_lo 15 GPIO_ACTIVE_HIGH>;
+    zephyr,user {
+        int-gpios = <&gpio0_lo 2 GPIO_ACTIVE_HIGH>;
+    };
+
+    Ch7SegDisplay: Ch7SegDisplay {
+        compatible = "Ch7SegDisplay";
+        gpios = <&gpio0_lo 10 GPIO_ACTIVE_HIGH>,
+                <&gpio0_lo 11 GPIO_ACTIVE_HIGH>,
+                <&gpio0_lo 12 GPIO_ACTIVE_HIGH>,
+                <&gpio0_lo 13 GPIO_ACTIVE_HIGH>,
+                <&gpio0_lo 14 GPIO_ACTIVE_HIGH>,
+                <&gpio0_lo 15 GPIO_ACTIVE_HIGH>;
     };
 
     leds: leds {
@@ -145,11 +149,12 @@
         osr-press = <3>;
     };
 
-    qmc5883l: qmc5883l@d {
-        compatible = "qst,qmc5883l";
+    qmc5883l: qmc5883l@d { 
+        // compatible = "qst,qmc5883l";
+        compatible = "i2c-device";
         reg = <0x0d>;
 
-        int-gpios = <&gpio0_lo 22 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+        // int-gpios = <&gpio0_lo 22 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
     };
 
     ssd1306: ssd1306@3c {

@@ -26,7 +26,7 @@ int getAltimeterData(struct sensor_value *pressure, struct sensor_value *dieTemp
     return 0;
 }
 
-int setAltimeterData(const struct sensor_value *pressure, const struct sensor_value *dieTemp, const struct sensor_value *altitude, const struct sensor_value *adjAltitude, k_timeout_t timeout) {
+static inline int setAltimeterData(const struct sensor_value *pressure, const struct sensor_value *dieTemp, const struct sensor_value *altitude, const struct sensor_value *adjAltitude, k_timeout_t timeout) {
     int ret = 0;
     if ((ret = k_mutex_lock(&altimeterMutex, timeout))) {
         return ret;
@@ -42,7 +42,7 @@ int setAltimeterData(const struct sensor_value *pressure, const struct sensor_va
 }
 
 #define print(...) printf(__VA_ARGS__)
-int printAltimeterData(k_timeout_t timeout) {
+static inline int printAltimeterData(k_timeout_t timeout) {
     struct sensor_value pressure;
     struct sensor_value dieTemp;
     struct sensor_value altitude;
@@ -62,7 +62,7 @@ int printAltimeterData(k_timeout_t timeout) {
     return 0;
 }
 
-static void calculateAltitude(const struct sensor_value *pressure, struct sensor_value *altitude) {
+static inline void calculateAltitude(const struct sensor_value *pressure, struct sensor_value *altitude) {
     float pressure_kPa = pressure->val1 + pressure->val2 / 1000000.0f;
     float seaLevelPressure_kPa = 101.325f;
 
@@ -72,7 +72,7 @@ static void calculateAltitude(const struct sensor_value *pressure, struct sensor
     altitude->val2 = (int32_t)((altitude_m - altitude->val1) * 1000000);
 }
 
-static void adjustAltitude(const struct sensor_value *altitude, const struct sensor_value *dieTemp, struct sensor_value *adjustedAltitude) {
+static inline void adjustAltitude(const struct sensor_value *altitude, const struct sensor_value *dieTemp, struct sensor_value *adjustedAltitude) {
     float dieTemp_C = dieTemp->val1 + dieTemp->val2 / 1000000.0f;
     float altitude_m = altitude->val1 + altitude->val2 / 1000000.0f;
 
@@ -96,6 +96,7 @@ static void altimeterTask(void) {
     struct sensor_value dieTemp;
     struct sensor_value altitude;
     struct sensor_value adjAltitude;
+
     while (1) {
         k_sleep(K_TIMEOUT_ABS_TICKS(next_wake_time));
         next_wake_time = k_uptime_ticks() + interval;
@@ -110,7 +111,7 @@ static void altimeterTask(void) {
             setAltimeterData(&pressure, &dieTemp, &altitude, &adjAltitude, K_TIMEOUT_ABS_TICKS(next_wake_time));
 
             /* Test print */
-            printAltimeterData(K_TIMEOUT_ABS_TICKS(next_wake_time));
+            // printAltimeterData(K_TIMEOUT_ABS_TICKS(next_wake_time));
         }
     }
 }

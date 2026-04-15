@@ -10,6 +10,8 @@ target_sources(app PRIVATE
     src/main.c 
     src/battery.c
     src/altimeter.c
+    src/compass.c
     src/keypad.c
+    src/gnss.c
     src/Ch7SegDisplay.c
 )

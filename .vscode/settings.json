@@ -2,6 +2,7 @@
     "cSpell.words": [
         "bosch",
         "Charlieplexing",
+        "DRDY",
         "gnss",
         "gpio",
         "gpios",
@@ -13,7 +14,10 @@
         "prechargep",
         "printk",
         "raspberrypi",
-        "UAOL"
+        "UAOL",
+        "XOUT",
+        "YOUT",
+        "ZOUT"
     ],
     "cortex-debug.variableUseNaturalFormat": false
 }
