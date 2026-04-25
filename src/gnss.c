@@ -60,35 +60,6 @@ static void gnssDataCb(const struct device *dev, const struct gnss_data *data) {
 
 static void gnssSatellitesCb(const struct device *dev, const struct gnss_satellite *satellites, uint16_t size) {
     atomic_set(&gnssSatellitesCount, size);
-
-    // printf("%s reported %u satellites!\n", dev->name, size);
-    // for (int i = 0; i < size; i++) {
-    //     const char *sys_name;
-
-    //     // Convert the system enum to a string
-    //     switch (satellites[i].system) {
-    //         case GNSS_SYSTEM_GPS:     sys_name = "GPS"; break;
-    //         case GNSS_SYSTEM_GLONASS: sys_name = "GLONASS"; break;
-    //         case GNSS_SYSTEM_GALILEO: sys_name = "Galileo"; break;
-    //         case GNSS_SYSTEM_BEIDOU:  sys_name = "BeiDou"; break;
-    //         case GNSS_SYSTEM_QZSS:    sys_name = "QZSS"; break;
-    //         case GNSS_SYSTEM_IRNSS:   sys_name = "IRNSS"; break;
-    //         case GNSS_SYSTEM_SBAS:    sys_name = "SBAS"; break;
-    //         case GNSS_SYSTEM_IMES:    sys_name = "IMES"; break;
-    //         default:                  sys_name = "Unknown"; break;
-    //     }
-
-    //     printf("[%2d] Sys: %-7s | PRN: %3u | SNR: %2u dB | Elev: %2u° | Azim: %3u° | Tracked: %s | Corrected: %s\n",
-    //         i,
-    //         sys_name,
-    //         satellites[i].prn,
-    //         satellites[i].snr,
-    //         satellites[i].elevation,
-    //         satellites[i].azimuth,
-    //         satellites[i].is_tracked ? "Y" : "N",
-    //         satellites[i].is_corrected ? "Y" : "N");
-    //     printf("------------------------------\n");
-    // }
 }
 
 GNSS_DT_DATA_CALLBACK_DEFINE(DT_ALIAS(gnss), gnssDataCb);
@@ -127,16 +98,6 @@ static void gnssTask(void) {
             case GNSS_FIX_QUALITY_ESTIMATED: fix_quality_str = "Estimated"; break;
             default:                         fix_quality_str = "Unknown"; break;
         }
-
-        printf("date: %02d:%02d:%02d:%03d %02d-%02d-%04d\n", 
-                data.utc.hour, data.utc.minute, data.utc.millisecond/1000, data.utc.millisecond%1000, 
-                data.utc.month_day, data.utc.month, data.utc.century_year + 2000);
-        printf("location: %lld %lld %d.%03d m, %d mm/s, bearing %d mdeg\n", 
-                data.nav_data.latitude, data.nav_data.longitude, data.nav_data.altitude / 1000, data.nav_data.altitude % 1000, data.nav_data.speed, data.nav_data.bearing);
-        printf("info: %u satellites, hdop %d.%03d, geoid separation %d.%03d m, fix status %s, fix quality %s\n", 
-                data.info.satellites_cnt, data.info.hdop / 1000, data.info.hdop % 1000, data.info.geoid_separation / 1000, data.info.geoid_separation % 1000, fix_status_str, fix_quality_str);
-        printf("------------------------------\n");
-
     }
 }
     

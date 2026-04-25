@@ -20,6 +20,6 @@
         "YOUT",
         "ZOUT"
     ],
-    "cortex-debug.variableUseNaturalFormat": false,
+    "cortex-debug.variableUseNaturalFormat": true,
     "cortex-debug.gdbPath": "${workspaceFolder}/../../zephyr-sdk-1.0.1/gnu/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb"
 }

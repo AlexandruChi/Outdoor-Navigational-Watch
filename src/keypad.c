@@ -12,8 +12,7 @@ K_SEM_DEFINE(keypadSem, 0, 1);
 
 K_EVENT_DEFINE(batteryKeyEvent);
 K_EVENT_DEFINE(navigationEvent);
-K_EVENT_DEFINE(compassEvent);
-K_EVENT_DEFINE(systemEvent);
+K_EVENT_DEFINE(compassKeyEvent);
 
 #define KEY_HOLD_TIME_MS 250
 #define KEY_DEBOUNCE_TIME_MS 10
@@ -127,7 +126,7 @@ static void keypadTask(void) {
                     k_event_post(&batteryKeyEvent, KEY_EVT_BATTERY_ON);
                 } else if (!bHold) {
                     batteryKeyState = STATE_RELEASE;
-                    k_event_post(&systemEvent, KEY_EVT_SYSTEM_POWER);
+                    k_event_post(&navigationEvent, KEY_EVT_NAVIGATION_POWER);
                 }
                 break;
 
@@ -198,7 +197,7 @@ static void keypadTask(void) {
             case STATE_PRESS:
                 if (now - actionKeyTime >= KEY_HOLD_TIME_MS) {
                     actionKeyState = STATE_HELD;
-                    k_event_post(&compassEvent, KEY_EVT_COMPASS_ON);
+                    k_event_post(&compassKeyEvent, KEY_EVT_COMPASS_ON);
                 } else if (!aHold) {
                     actionKeyState = STATE_RELEASE;
                     k_event_post(&navigationEvent, KEY_EVT_NAVIGATION_SELECT);
@@ -208,7 +207,7 @@ static void keypadTask(void) {
             case STATE_HELD:
                 if (!aHold) {
                     actionKeyState = STATE_RELEASE;
-                    k_event_post(&compassEvent, KEY_EVT_COMPASS_OFF);
+                    k_event_post(&compassKeyEvent, KEY_EVT_COMPASS_OFF);
                 }
                 break;
         }

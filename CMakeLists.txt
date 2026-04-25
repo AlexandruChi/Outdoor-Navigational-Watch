@@ -6,7 +6,6 @@ set(BOARD rpi_pico2/rp2350a/m33/w)
 find_package(Zephyr)
 project(project)
 
-target_include_directories(app PRIVATE include)
 target_sources(app PRIVATE 
     src/main.c 
     src/battery.c
@@ -14,5 +13,6 @@ target_sources(app PRIVATE
     src/compass.c
     src/keypad.c
     src/gnss.c
+    src/display.c
     src/Ch7SegDisplay.c
 )

@@ -24,7 +24,7 @@ static void compassTask(void) {
     bool displayOn = false;
 
     while (1) {
-        uint32_t events = k_event_wait(&compassEvent, (KEY_EVT_COMPASS_ON | KEY_EVT_COMPASS_OFF), true, COMPASS_UPDATE_INTERVAL);
+        uint32_t events = k_event_wait(&compassKeyEvent, (KEY_EVT_COMPASS_ON | KEY_EVT_COMPASS_OFF), true, COMPASS_UPDATE_INTERVAL);
 
         // Check if disp[lay is used by a different task
         isSegmentDisplayOn(&displayOn, K_FOREVER);
