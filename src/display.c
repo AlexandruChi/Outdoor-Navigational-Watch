@@ -4,6 +4,10 @@
 #include <zephyr/display/cfb.h>
 #include <stdio.h>
 #include "keypad.h"
+#include "data.h"
+
+#include "gnss.h"
+#include "altimeter.h"
 
 static void displayTask(void);
 
@@ -11,33 +15,51 @@ K_THREAD_DEFINE(displayThread, 1024, displayTask, NULL, NULL, NULL, 5, 0, 0);
 
 struct page {
     char title[13];
-    void (*update)(struct page *page);
     void (*action)(struct page *page);
     void (*render)(struct page *page);
-    void *pageData;
+    uint8_t state;
 };
 
-void updateTimePage(struct page *page);
 void renderTimePage(struct page *page);
+void renderDatePage(struct page *page);
+void renderPositionPage(struct page *page);
+void actionPositionPage(struct page *page);
+void renderAltitudePage(struct page *page);
+void actionAltitudePage(struct page *page);
+void renderEnvironmentPage(struct page *page);
+void actionEnvironmentPage(struct page *page);
+void renderHeadingPage(struct page *page);
+void renderGnssPage(struct page *page);
 
 struct page pages[7] = {
     {
-        .title = "Time",
+        .title = "Time UTC",
+        .render = renderTimePage,
+    }, {
+        .title = "Date",
+        .render = renderDatePage,
     }, {
         .title = "Position",
+        .render = renderPositionPage,
+        .action = actionPositionPage,
     }, {
         .title = "Altitude",
+        .render = renderAltitudePage,
+        .action = actionAltitudePage,
     }, {
         .title = "Environment",
+        .render = renderEnvironmentPage,
+        .action = actionEnvironmentPage,
     }, {
-        .title = "Magnetometer",
+        .title = "Heading",
+        .render = renderHeadingPage,
     }, {
-        .title = "GNSS",
-    }, {
-        .title = "System",
+        .title = "GNSS status",
+        .render = renderGnssPage,
     }
 };
 
+void fetchData();
 
 static void displayTask(void) {
     k_thread_name_set(displayThread, "display");
@@ -96,13 +118,11 @@ static void displayTask(void) {
             }
         }
 
+        fetchData();
+
         cfb_framebuffer_clear(display, false);
         if (currentPage) {
             cfb_draw_text(display, currentPage->title, 0, 0);
-
-            if (currentPage->update) {
-                currentPage->update(currentPage);
-            }
 
             if (currentPage->render) {
                 currentPage->render(currentPage);
@@ -111,4 +131,131 @@ static void displayTask(void) {
             cfb_framebuffer_finalize(display);
         }
     }
+}
+
+static gnss_data_t gnssData;
+static altimeter_data_t altimeterData;
+
+void fetchData() {
+    gnssGetData(&gnssData, K_NO_WAIT);
+    altimeterGetData(&altimeterData, K_NO_WAIT);
+}
+
+void renderTimePage(struct page *page) {
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d", gnssData.datetime.time.hour, gnssData.datetime.time.minute, gnssData.datetime.time.second);
+    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 30);
+}
+
+void renderDatePage(struct page *page) {
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "%02d/%02d/%02d", gnssData.datetime.date.day, gnssData.datetime.date.month, gnssData.datetime.date.year);
+    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 30);
+}
+
+void renderPositionPage(struct page *page) {
+    char buffer[32];
+
+    if (page->state) {
+        snprintf(buffer, sizeof(buffer), "Lt %8.3f", (double)gnssData.position.latitude);
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 23);
+        snprintf(buffer, sizeof(buffer), "Ln %8.3f", (double)gnssData.position.longitude);
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 37);
+    } else {
+        uint8_t hLat = gnssData.position.latitude >= 0 ? 'N' : 'S';
+        uint8_t hLon = gnssData.position.longitude >= 0 ? 'E' : 'W';
+
+        float absLat = gnssData.position.latitude >= 0 ? gnssData.position.latitude : -gnssData.position.latitude;
+        float absLon = gnssData.position.longitude >= 0 ? gnssData.position.longitude : -gnssData.position.longitude;
+
+        uint8_t latDeg = (uint8_t)absLat;
+        uint8_t latMin = (uint8_t)((absLat - latDeg) * 60);
+        uint8_t latSec = (uint8_t)(((absLat - latDeg) * 60 - latMin) * 60);
+
+        uint8_t lonDeg = (uint8_t)absLon;
+        uint8_t lonMin = (uint8_t)((absLon - lonDeg) * 60);
+        uint8_t lonSec = (uint8_t)(((absLon - lonDeg) * 60 - lonMin) * 60);
+
+        snprintf(buffer, sizeof(buffer), "   o");
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 18);
+        snprintf(buffer, sizeof(buffer), "%3d %02d'%02d\" %c", latDeg, latMin, latSec, hLat);
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 23);
+        snprintf(buffer, sizeof(buffer), "   o");
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 32);
+        snprintf(buffer, sizeof(buffer), "%3d %02d'%02d\" %c", lonDeg, lonMin, lonSec, hLon);
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 37);
+    }
+}
+
+void actionPositionPage(struct page *page) {
+    page->state = !page->state;   
+}
+
+void renderAltitudePage(struct page *page) {
+    char buffer[32];
+
+    switch (page->state) {
+        case 0:
+            snprintf(buffer, sizeof(buffer), "%6d m", altimeterData.altitude);
+            cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 30);
+            break;
+        case 1:
+            snprintf(buffer, sizeof(buffer), "GNSS");
+            cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 25, 17);
+            snprintf(buffer, sizeof(buffer), "%6d m", gnssData.altitude);
+            cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 30);
+            break;
+        case 2:
+            snprintf(buffer, sizeof(buffer), "Adjusted");
+            cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 25, 17);
+            snprintf(buffer, sizeof(buffer), "%6d m", altimeterData.adjAltitude);
+            cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 30);
+            break;
+    }
+}
+
+void actionAltitudePage(struct page *page) {
+    page->state++;
+    if (page->state > 2) {
+        page->state = 0;
+    }
+}
+
+void renderEnvironmentPage(struct page *page) {
+    char buffer[32];
+
+    if (page->state) {
+        snprintf(buffer, sizeof(buffer), "%7.2f K", (double)(altimeterData.environment.temperature + 273.15f));
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 23);
+        snprintf(buffer, sizeof(buffer), "%7.2f kPa", (double)(altimeterData.environment.pressure / 100.0f));
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 37);
+    } else {
+        snprintf(buffer, sizeof(buffer), "%7.2f C", (double)altimeterData.environment.temperature);
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 23);
+        snprintf(buffer, sizeof(buffer), "%7.2f atm", (double)(altimeterData.environment.pressure / 101.325f));
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 37);
+    }
+}
+
+void actionEnvironmentPage(struct page *page) {
+    page->state = !page->state;
+}
+
+void renderHeadingPage(struct page *page) {
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "   o");
+    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 30, 25);
+    snprintf(buffer, sizeof(buffer), "%3d", gnssData.heading);
+    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 30, 30);
+}
+
+void renderGnssPage(struct page *page) {
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "Nr. sat: %d", gnssData.gnss.satellites);
+    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 43);
+    snprintf(buffer, sizeof(buffer), "%s", gnssData.gnss.quality);
+    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 17);
+    snprintf(buffer, sizeof(buffer), "%s", gnssData.gnss.fixStatus);
+    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 30);
+
 }

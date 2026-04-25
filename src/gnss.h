@@ -2,8 +2,8 @@
 #define GNSS_H
 
 #include <zephyr/kernel.h>
-#include <zephyr/drivers/gnss.h>
+#include "data.h"
 
-extern atomic_t gnssSatellitesCount;
+int gnssGetData(gnss_data_t *data, k_timeout_t timeout);
 
 #endif /* GNSS_H */

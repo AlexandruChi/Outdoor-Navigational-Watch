@@ -1,64 +1,26 @@
-#include "altimeter.h"
+#include <zephyr/drivers/sensor.h>
 #include <math.h>
+#include "altimeter.h"
 
 static void altimeterTask(void);
 
+#define UPDATE_INTERVAL_MS 1000
+
 K_THREAD_DEFINE(altimeterThread, 1024, altimeterTask, NULL, NULL, NULL, 7, 0, 0);
 K_MUTEX_DEFINE(altimeterMutex);
+K_MUTEX_DEFINE(returnAltimeterMutex);
 
-static volatile struct sensor_value _pressure;
-static volatile struct sensor_value _dieTemp;
-static volatile struct sensor_value _altitude;
-static volatile struct sensor_value _adjAltitude;
+static altimeter_data_t returnData;
 
-int getAltimeterData(struct sensor_value *pressure, struct sensor_value *dieTemp, struct sensor_value *altitude, struct sensor_value *adjAltitude, k_timeout_t timeout) {
+int altimeterGetData(altimeter_data_t *data, k_timeout_t timeout) {
     int ret = 0;
-    if ((ret = k_mutex_lock(&altimeterMutex, timeout))) {
-        return ret;
-    }
-    
-    *pressure = _pressure;
-    *dieTemp = _dieTemp;
-    *altitude = _altitude;
-    *adjAltitude = _adjAltitude;
-
-    k_mutex_unlock(&altimeterMutex);
-    return 0;
-}
-
-static inline int setAltimeterData(const struct sensor_value *pressure, const struct sensor_value *dieTemp, const struct sensor_value *altitude, const struct sensor_value *adjAltitude, k_timeout_t timeout) {
-    int ret = 0;
-    if ((ret = k_mutex_lock(&altimeterMutex, timeout))) {
-        return ret;
-    }
-    
-    _pressure = *pressure;
-    _dieTemp = *dieTemp;
-    _altitude = *altitude;
-    _adjAltitude = *adjAltitude;
-
-    k_mutex_unlock(&altimeterMutex);
-    return 0;
-}
-
-#define print(...) printf(__VA_ARGS__)
-static inline int printAltimeterData(k_timeout_t timeout) {
-    struct sensor_value pressure;
-    struct sensor_value dieTemp;
-    struct sensor_value altitude;
-    struct sensor_value adjAltitude;
-
-    int ret = getAltimeterData(&pressure, &dieTemp, &altitude, &adjAltitude, timeout);
-    if (ret) {
+    if ((ret = k_mutex_lock(&returnAltimeterMutex, timeout))) {
         return ret;
     }
 
-    print("Pressure: %d.%06d kPa\n", pressure.val1, pressure.val2);
-    print("Die Temperature: %d.%06d °C\n", dieTemp.val1, dieTemp.val2);
-    print("Calculated Altitude: %d.%06d m\n", altitude.val1, altitude.val2);
-    print("Adjusted Altitude: %d.%06d m\n", adjAltitude.val1, adjAltitude.val2);
-    print("-------------------------\n");
+    *data = returnData;
 
+    k_mutex_unlock(&returnAltimeterMutex);
     return 0;
 }
 
@@ -108,10 +70,19 @@ static void altimeterTask(void) {
             calculateAltitude(&pressure, &altitude);
             adjustAltitude(&altitude, &dieTemp, &adjAltitude);
 
-            setAltimeterData(&pressure, &dieTemp, &altitude, &adjAltitude, K_TIMEOUT_ABS_TICKS(next_wake_time));
+            altimeter_data_t newReturnData = {
+                .altitude = altitude.val1,
+                .adjAltitude = adjAltitude.val1,
+                .environment = {
+                    .pressure = (pressure.val1 + (pressure.val2 / 1000000.0f)) * 100.0f,
+                    .temperature = dieTemp.val1 + (dieTemp.val2 / 1000000.0f),
+                },
+            };
 
-            /* Test print */
-            // printAltimeterData(K_TIMEOUT_ABS_TICKS(next_wake_time));
+            if (k_mutex_lock(&returnAltimeterMutex, K_TIMEOUT_ABS_TICKS(next_wake_time)) == 0) {
+                returnData = newReturnData;
+                k_mutex_unlock(&returnAltimeterMutex);
+            }
         }
     }
 }

@@ -1,49 +1,27 @@
+#include <zephyr/drivers/gnss.h>
 #include "gnss.h"
 
 static void gnssTask(void);
 
 K_THREAD_DEFINE(gnssThread, 1024, gnssTask, NULL, NULL, NULL, 7, 0, 0);
 K_MUTEX_DEFINE(gnssDataMutex);
+K_MUTEX_DEFINE(returnGnssMutex);
 K_SEM_DEFINE(gnssDataSem, 0, 1);
-
-// TODO: make a structure with the data that is actually displayed on the screen
 
 static volatile struct gnss_data gnssData;
 atomic_t gnssSatellitesCount = ATOMIC_INIT(0);
 
-int getGnssUTC(struct gnss_time *time, k_timeout_t timeout) {
+static gnss_data_t returnData;
+
+int gnssGetData(gnss_data_t *data, k_timeout_t timeout) {
     int ret = 0;
-    if ((ret = k_mutex_lock(&gnssDataMutex, timeout))) {
+    if ((ret = k_mutex_lock(&returnGnssMutex, timeout))) {
         return ret;
     }
 
-    *time = gnssData.utc;
+    *data = returnData;
 
-    k_mutex_unlock(&gnssDataMutex);
-    return 0;
-}
-
-int getGnssInfo(struct gnss_info *info, k_timeout_t timeout) {
-    int ret = 0;
-    if ((ret = k_mutex_lock(&gnssDataMutex, timeout))) {
-        return ret;
-    }
-
-    *info = gnssData.info;
-
-    k_mutex_unlock(&gnssDataMutex);
-    return 0;
-}
-
-int getGnssNavData(struct navigation_data *navData, k_timeout_t timeout) {
-    int ret = 0;
-    if ((ret = k_mutex_lock(&gnssDataMutex, timeout))) {
-        return ret;
-    }
-
-    *navData = gnssData.nav_data;
-
-    k_mutex_unlock(&gnssDataMutex);
+    k_mutex_unlock(&returnGnssMutex);
     return 0;
 }
 
@@ -84,7 +62,7 @@ static void gnssTask(void) {
             case GNSS_FIX_STATUS_NO_FIX:        fix_status_str = "No Fix"; break;
             case GNSS_FIX_STATUS_GNSS_FIX:      fix_status_str = "GNSS Fix"; break;
             case GNSS_FIX_STATUS_DGNSS_FIX:     fix_status_str = "DGNSS Fix"; break;
-            case GNSS_FIX_STATUS_ESTIMATED_FIX: fix_status_str = "Estimated Fix"; break;
+            case GNSS_FIX_STATUS_ESTIMATED_FIX: fix_status_str = "Estimated"; break;
             default:                            fix_status_str = "Unknown"; break;
         }
 
@@ -98,6 +76,37 @@ static void gnssTask(void) {
             case GNSS_FIX_QUALITY_ESTIMATED: fix_quality_str = "Estimated"; break;
             default:                         fix_quality_str = "Unknown"; break;
         }
+
+        gnss_data_t newReturnData = {
+            .datetime = {
+                .time = {
+                    .hour = data.utc.hour,
+                    .minute = data.utc.minute,
+                    .second = data.utc.millisecond / 1000
+                },
+                .date = {
+                    .day = data.utc.month_day,
+                    .month = data.utc.month,
+                    .year = data.utc.century_year
+                }
+            },
+            .position = {
+                .latitude = data.nav_data.latitude / 1e9,
+                .longitude = data.nav_data.longitude / 1e9
+            },
+            .altitude = data.nav_data.altitude / 1000,
+            .heading = data.nav_data.bearing / 1000,
+            .gnss = {
+                .satellites = atomic_get(&gnssSatellitesCount)
+            }
+        };
+
+        strcpy(newReturnData.gnss.fixStatus, fix_status_str);
+        strcpy(newReturnData.gnss.quality, fix_quality_str);
+
+        k_mutex_lock(&returnGnssMutex, K_FOREVER);
+        returnData = newReturnData;
+        k_mutex_unlock(&returnGnssMutex);
     }
 }
     
