@@ -226,15 +226,18 @@ void renderEnvironmentPage(struct page *page) {
 
     if (page->state) {
         snprintf(buffer, sizeof(buffer), "%7.2f K", (double)(altimeterData.environment.temperature + 273.15f));
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 23);
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 17);
         snprintf(buffer, sizeof(buffer), "%7.2f kPa", (double)(altimeterData.environment.pressure / 100.0f));
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 37);
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 30);
     } else {
         snprintf(buffer, sizeof(buffer), "%7.2f C", (double)altimeterData.environment.temperature);
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 23);
-        snprintf(buffer, sizeof(buffer), "%7.2f atm", (double)(altimeterData.environment.pressure / 101.325f));
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 37);
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 17);
+        snprintf(buffer, sizeof(buffer), "%7.2f atm", (double)(altimeterData.environment.pressure / 10132.5f));
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 30);
     }
+
+    snprintf(buffer, sizeof(buffer), "%7.2f %%", (double)altimeterData.environment.humidity);
+    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 43);
 }
 
 void actionEnvironmentPage(struct page *page) {

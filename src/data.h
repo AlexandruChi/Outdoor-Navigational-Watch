@@ -30,6 +30,7 @@ typedef int32_t altitude_t;
 typedef struct {
     float temperature; // Celsius
     float pressure; // Pa
+    float humidity; // %
 } environment_t;
 
 typedef uint16_t heading_t; // degrees

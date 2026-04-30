@@ -9,7 +9,7 @@
         right-key = &key2;
         compass-key = &key3;
 
-        altimeter = &bmp180;
+        altimeter = &bme280;
         compass = &qmc5883l;
         gnss = &gnss_nmea_generic;
         display = &ssd1306;
@@ -142,11 +142,9 @@
     pinctrl-0 = <&i2c0_pins>;
     pinctrl-names = "default";
 
-    bmp180: bmp180@77 {
-        compatible = "bosch,bmp180";
-        reg = <0x77>;
-
-        osr-press = <3>;
+    bme280: bme280@77 {
+        compatible = "bosch,bme280";
+        reg = <0x76>;
     };
 
     qmc5883l: qmc5883l@d { 

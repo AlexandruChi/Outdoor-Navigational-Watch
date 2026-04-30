@@ -34,11 +34,11 @@ static inline void calculateAltitude(const struct sensor_value *pressure, struct
     altitude->val2 = (int32_t)((altitude_m - altitude->val1) * 1000000);
 }
 
-static inline void adjustAltitude(const struct sensor_value *altitude, const struct sensor_value *dieTemp, struct sensor_value *adjustedAltitude) {
-    float dieTemp_C = dieTemp->val1 + dieTemp->val2 / 1000000.0f;
+static inline void adjustAltitude(const struct sensor_value *altitude, const struct sensor_value *temp, struct sensor_value *adjustedAltitude) {
+    float temp_C = temp->val1 + temp->val2 / 1000000.0f;
     float altitude_m = altitude->val1 + altitude->val2 / 1000000.0f;
 
-    altitude_m *= (dieTemp_C + 273.15f) / 288.15f;
+    altitude_m *= (temp_C + 273.15f) / 288.15f;
 
     adjustedAltitude->val1 = (int32_t)altitude_m;
     adjustedAltitude->val2 = (int32_t)((altitude_m - adjustedAltitude->val1) * 1000000);
@@ -55,7 +55,8 @@ static void altimeterTask(void) {
     int64_t next_wake_time = k_uptime_ticks();
 
     struct sensor_value pressure;
-    struct sensor_value dieTemp;
+    struct sensor_value temp;
+    struct sensor_value humidity;
     struct sensor_value altitude;
     struct sensor_value adjAltitude;
 
@@ -65,17 +66,19 @@ static void altimeterTask(void) {
 
         if (sensor_sample_fetch(altimeter) == 0) {
             sensor_channel_get(altimeter, SENSOR_CHAN_PRESS, &pressure);
-            sensor_channel_get(altimeter, SENSOR_CHAN_DIE_TEMP, &dieTemp);
+            sensor_channel_get(altimeter, SENSOR_CHAN_AMBIENT_TEMP, &temp);
+            sensor_channel_get(altimeter, SENSOR_CHAN_HUMIDITY, &humidity);
             
             calculateAltitude(&pressure, &altitude);
-            adjustAltitude(&altitude, &dieTemp, &adjAltitude);
+            adjustAltitude(&altitude, &temp, &adjAltitude);
 
             altimeter_data_t newReturnData = {
                 .altitude = altitude.val1,
                 .adjAltitude = adjAltitude.val1,
                 .environment = {
                     .pressure = (pressure.val1 + (pressure.val2 / 1000000.0f)) * 100.0f,
-                    .temperature = dieTemp.val1 + (dieTemp.val2 / 1000000.0f),
+                    .temperature = temp.val1 + (temp.val2 / 1000000.0f),
+                    .humidity = humidity.val1 + (humidity.val2 / 1000000.0f),
                 },
             };
 
