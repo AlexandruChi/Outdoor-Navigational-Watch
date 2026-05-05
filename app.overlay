@@ -1,4 +1,9 @@
 / {
+    chosen {
+        zephyr,console = &uart1;
+		zephyr,shell-uart = &uart1;
+    };
+
     aliases {
         battery-led = &led;
         segment-display = &Ch7SegDisplay;
@@ -11,29 +16,29 @@
 
         altimeter = &bme280;
         compass = &qmc5883l;
-        gnss = &gnss_nmea_generic;
+        gnss = &gnss;
         display = &ssd1306;
     };
 
     zephyr,user {
-        int-gpios = <&gpio0_lo 2 GPIO_ACTIVE_HIGH>;
+        int-gpios = <&gpio0 7 GPIO_ACTIVE_HIGH>;
     };
 
     Ch7SegDisplay: Ch7SegDisplay {
         compatible = "Ch7SegDisplay";
-        gpios = <&gpio0_lo 10 GPIO_ACTIVE_HIGH>,
-                <&gpio0_lo 11 GPIO_ACTIVE_HIGH>,
-                <&gpio0_lo 12 GPIO_ACTIVE_HIGH>,
-                <&gpio0_lo 13 GPIO_ACTIVE_HIGH>,
-                <&gpio0_lo 14 GPIO_ACTIVE_HIGH>,
-                <&gpio0_lo 15 GPIO_ACTIVE_HIGH>;
+        gpios = <&gpio0 16 GPIO_ACTIVE_HIGH>,
+                <&gpio0 10 GPIO_ACTIVE_HIGH>,
+                <&gpio0 19 GPIO_ACTIVE_HIGH>,
+                <&gpio0 21 GPIO_ACTIVE_HIGH>,
+                <&gpio0 8 GPIO_ACTIVE_HIGH>,
+                <&gpio0 22 GPIO_ACTIVE_HIGH>;
     };
 
     leds: leds {
         compatible = "gpio-leds";
 
         led: led {
-            gpios = <&gpio0_lo 3 GPIO_ACTIVE_HIGH>;
+            gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
         };
     };
 
@@ -41,25 +46,25 @@
         compatible = "gpio-keys";
 
         key0: key0 {
-            gpios = <&gpio0_lo 21 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            gpios = <&gpio0 11 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
         };
 
         key1: key1 {
-            gpios = <&gpio0_lo 20 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            gpios = <&gpio0 18 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
         };
 
         key2: key2 {
-            gpios = <&gpio0_lo 19 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            gpios = <&gpio0 20 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
         };
 
         key3: key3 {
-            gpios = <&gpio0_lo 18 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            gpios = <&gpio0 9 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
         };
     };
 
     voltage: voltage {
         compatible = "voltage-divider";
-        io-channels = <&adc 0>;
+        io-channels = <&adc 2>;
         output-ohms = <100>;
         full-ohms = <570>;
     };
@@ -71,34 +76,59 @@
 };
 
 &pinctrl {
-    uart1_pins: uart1_pins {
+    uart0_pins: uart0_pins {
         group1 {
-            pinmux = <UART1_TX_P8>;
+            pinmux = <UART0_TX_P12>;
         };
 
         group2 {
-            pinmux = <UART1_RX_P9>;
+            pinmux = <UART0_RX_P13>;
+            input-enable;
+        };
+    };
+
+    uart1_pins: uart1_pins {
+        group1 {
+            pinmux = <UART1_TX_P4>;
+        };
+
+        group2 {
+            pinmux = <UART1_RX_P5>;
             input-enable;
         };
     };
 
     i2c0_pins: i2c0_pins {
         group1 {
-            pinmux = <I2C0_SDA_P4>;
+            pinmux = <I2C0_SDA_P0>;
             bias-pull-up;
             input-enable;
         };
 
         group2 {
-            pinmux = <I2C0_SCL_P5>;
+            pinmux = <I2C0_SCL_P1>;
             bias-pull-up;
             input-enable;
         };
     };
 
-    adc0_pins: adc0_pins {
+    i2c1_pins: i2c1_pins {
         group1 {
-            pinmux = <ADC_CH0_P26>;
+            pinmux = <I2C1_SDA_P26>;
+            bias-pull-up;
+            input-enable;
+        };
+
+        group2 {
+            pinmux = <I2C1_SCL_P27>;
+            bias-pull-up;
+            input-enable;
+        };
+    };
+
+    adc2_pins: adc2_pins {
+        group1 {
+            pinmux = <ADC_CH2_P28>;
             bias-disable;
             input-enable;
         };
@@ -108,18 +138,30 @@
 &adc {
     status = "okay";
 
-    pinctrl-0 = <&adc0_pins>;
+    pinctrl-0 = <&adc2_pins>;
     pinctrl-names = "default";
 
     #address-cells = <1>;
     #size-cells = <0>;
 
-    adc0: channel@0 {
-        reg = <0>;
+    adc2: channel@2 {
+        reg = <2>;
         zephyr,gain = "ADC_GAIN_1";
         zephyr,reference = "ADC_REF_INTERNAL";
         zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
         zephyr,resolution = <12>;
+    };
+};
+
+&uart0 {
+    status = "okay";
+    current-speed = <9600>;
+
+    pinctrl-0 = <&uart0_pins>;
+    pinctrl-names = "default";
+
+    gnss: gnss-nmea-generic {
+        compatible = "gnss-nmea-generic";
     };
 };
 
@@ -129,10 +171,6 @@
 
     pinctrl-0 = <&uart1_pins>;
     pinctrl-names = "default";
-
-    gnss_nmea_generic: gnss-nmea-generic {
-        compatible = "gnss-nmea-generic";
-    };
 };
 
 &i2c0 {
@@ -142,17 +180,12 @@
     pinctrl-0 = <&i2c0_pins>;
     pinctrl-names = "default";
 
-    bme280: bme280@77 {
-        compatible = "bosch,bme280";
-        reg = <0x76>;
-    };
-
     qmc5883l: qmc5883l@d { 
         // compatible = "qst,qmc5883l";
         compatible = "i2c-device";
         reg = <0x0d>;
 
-        // int-gpios = <&gpio0_lo 22 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+        // int-gpios = <&gpio0 7 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
     };
 
     ssd1306: ssd1306@3c {
@@ -170,6 +203,19 @@
 
         segment-remap;
         com-invdir;
+    };
+};
+
+&i2c1 {
+    status = "okay";
+    clock-frequency = <100000>;
+
+    pinctrl-0 = <&i2c1_pins>;
+    pinctrl-names = "default";
+
+    bme280: bme280@76 {
+        compatible = "bosch,bme280";
+        reg = <0x76>;
     };
 };
 
