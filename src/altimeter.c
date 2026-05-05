@@ -12,6 +12,11 @@ K_MUTEX_DEFINE(returnAltimeterMutex);
 
 static altimeter_data_t returnData;
 
+static struct sensor_value tempOffset = {
+    .val1 = -2,
+    .val2 = -500000,
+};
+
 int altimeterGetData(altimeter_data_t *data, k_timeout_t timeout) {
     int ret = 0;
     if ((ret = k_mutex_lock(&returnAltimeterMutex, timeout))) {
@@ -68,6 +73,9 @@ static void altimeterTask(void) {
             sensor_channel_get(altimeter, SENSOR_CHAN_PRESS, &pressure);
             sensor_channel_get(altimeter, SENSOR_CHAN_AMBIENT_TEMP, &temp);
             sensor_channel_get(altimeter, SENSOR_CHAN_HUMIDITY, &humidity);
+
+            temp.val1 += tempOffset.val1;
+            temp.val2 += tempOffset.val2;
             
             calculateAltitude(&pressure, &altitude);
             adjustAltitude(&altitude, &temp, &adjAltitude);

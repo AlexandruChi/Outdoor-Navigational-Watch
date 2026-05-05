@@ -56,7 +56,7 @@ static void batteryTask(void) {
 
         if (events & KEY_EVT_BATTERY_ON) {
             printValues = true;
-            setSegmentDisplayFormat(DISPLAY_DOT_RIGHT, K_FOREVER);
+            setSegmentDisplayFormat(DISPLAY_DIGIT_ALWAYS_MIDDLE | DISPLAY_DOT_RIGHT, K_FOREVER);
             setSegmentDisplayOn(K_FOREVER);
         } else if (events & KEY_EVT_BATTERY_OFF) {
             printValues = false;

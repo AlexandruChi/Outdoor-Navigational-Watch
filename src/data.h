@@ -35,6 +35,8 @@ typedef struct {
 
 typedef uint16_t heading_t; // degrees
 
+typedef float speed_t; // m/s
+
 typedef float battery_t; // V
 
 typedef struct {
@@ -48,6 +50,7 @@ typedef struct {
     position_t position;
     altitude_t altitude;
     heading_t heading;
+    speed_t speed;
     gnss_t gnss;
 } gnss_data_t;
 

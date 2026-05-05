@@ -96,6 +96,7 @@ static void gnssTask(void) {
             },
             .altitude = data.nav_data.altitude / 1000,
             .heading = data.nav_data.bearing / 1000,
+            .speed = (float)data.nav_data.speed / 1000.0f,
             .gnss = {
                 .satellites = atomic_get(&gnssSatellitesCount)
             }

@@ -28,7 +28,7 @@ void renderAltitudePage(struct page *page);
 void actionAltitudePage(struct page *page);
 void renderEnvironmentPage(struct page *page);
 void actionEnvironmentPage(struct page *page);
-void renderHeadingPage(struct page *page);
+void renderDirectionPage(struct page *page);
 void renderGnssPage(struct page *page);
 
 struct page pages[7] = {
@@ -51,8 +51,8 @@ struct page pages[7] = {
         .render = renderEnvironmentPage,
         .action = actionEnvironmentPage,
     }, {
-        .title = "Heading",
-        .render = renderHeadingPage,
+        .title = "Direction",
+        .render = renderDirectionPage,
     }, {
         .title = "GNSS status",
         .render = renderGnssPage,
@@ -244,12 +244,14 @@ void actionEnvironmentPage(struct page *page) {
     page->state = !page->state;
 }
 
-void renderHeadingPage(struct page *page) {
+void renderDirectionPage(struct page *page) {
     char buffer[32];
-    snprintf(buffer, sizeof(buffer), "   o");
-    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 30, 25);
-    snprintf(buffer, sizeof(buffer), "%3d", gnssData.heading);
-    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 30, 30);
+    snprintf(buffer, sizeof(buffer), "     o");
+    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 25, 18);
+    snprintf(buffer, sizeof(buffer), "%5d", gnssData.heading);
+    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 25, 23);
+    snprintf(buffer, sizeof(buffer), "%5.1f m/s", (double)gnssData.speed);
+    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 25, 37);
 }
 
 void renderGnssPage(struct page *page) {
