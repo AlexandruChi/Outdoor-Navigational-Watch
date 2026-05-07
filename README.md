@@ -1,6 +1,6 @@
 # Outdoor Navigational Watch
 
-The project aims at building a watch designed to offer real-time information about the current UTC time, geographical position, and directional orientation, as well as environmental data including atmospheric pressure, calculated altitude, and ambient temperature.
+The project aims at building a watch designed to offer real-time information about the current UTC time, geographical position, and directional orientation, as well as environmental data including atmospheric pressure, calculated altitude, ambient temperature, ambient humidity.
 
 ## Hardware
 
@@ -8,25 +8,37 @@ The project aims at building a watch designed to offer real-time information abo
 * **Microcontroller:** Raspberry Pi Pico 2 (RP2350, utilising dual ARM Cortex-M33 cores)
 
 ### Sensors
-* **GNSS Module:** GY-NEO6MV2 (Geographical Position & UTC Time)
-* **Magnetometer:** HW-246 / GY-271 (Directional Compass)
-* **Atmospheric Sensor:** GY-68 / BMP180 (Atmospheric Pressure & Ambient Temperature)
+* **GNSS Module:** ATGM336H-5N (Geographical Position & UTC Time)
+* **Magnetometer:** QMC5883L (Directional Compass)
+* **Atmospheric Sensor:** BME280 (Atmospheric Pressure, Ambient Temperature, Ambient Humidity)
 
 ### Display
 * **Main Screen:** GME12864 (128x64 Monochrome OLED)
-* **Battery Readout:** 7-Segment Display
+* **Compass & Battery:** 7-Segment Display
 * **Status Indicator:** Coloured LED
 
 ### User Input
-* **Interface Buttons:** Buttons for menu navigation and selection
-* **Battery Button:** Button to show the battery voltage
-* **Display Toggle:** Button to disable/enable the main screen
+
+4 buttons:
+
+* **Power button**
+    * **Press:** toggle the display on and off
+    * **Hold:** show battery voltage
+* **Navigation left**
+    * **Press:** previous display page
+    * **Hold:** start / cancel compass calibration
+* **Navigation right**
+    * **Press:** next display page
+    * **Hold** for 5 seconds to reset compass calibration
+* **Action button**
+    * **Press:** change displayed unit
+    * **Hold:** toggle compass reading
 
 ## Software
 
 ### Firmware
 * **Operating System:** Zephyr RTOS
-* **Graphics Library:** LVGL
+* **Graphics Library:** Zephyr character framebuffer
 * **Language:** C
 
 ### Input
@@ -40,5 +52,5 @@ The project aims at building a watch designed to offer real-time information abo
 
 ### Output
 * **Main Screen:** Managed via Zephyr display libraries
-* **Battery Readout:** Driven via GPIO for the 7-segment display
-* **Status Indicator:** Driven via GPIO PWM for LED control
+* **Compass & Battery:** Driven via GPIO for the 7-segment display
+* **Status Indicator:** Driven via GPIO for LED control
