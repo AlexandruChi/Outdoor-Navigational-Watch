@@ -20,10 +20,6 @@
         display = &ssd1306;
     };
 
-    zephyr,user {
-        int-gpios = <&gpio0 7 GPIO_ACTIVE_HIGH>;
-    };
-
     Ch7SegDisplay: Ch7SegDisplay {
         compatible = "Ch7SegDisplay";
         gpios = <&gpio0 16 GPIO_ACTIVE_HIGH>,
@@ -67,11 +63,6 @@
         io-channels = <&adc 2>;
         output-ohms = <100>;
         full-ohms = <570>;
-    };
-
-    pico_temp: pico-temp {
-        compatible = "raspberrypi,pico-temp";
-        io-channels = <&adc 4>;
     };
 };
 
@@ -181,11 +172,10 @@
     pinctrl-names = "default";
 
     qmc5883l: qmc5883l@d { 
-        // compatible = "qst,qmc5883l";
-        compatible = "i2c-device";
+        compatible = "qst,qmc5883l";
         reg = <0x0d>;
 
-        // int-gpios = <&gpio0 7 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+        int-gpios = <&gpio0 7 GPIO_ACTIVE_HIGH>;
     };
 
     ssd1306: ssd1306@3c {

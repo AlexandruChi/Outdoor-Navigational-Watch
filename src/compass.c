@@ -119,14 +119,11 @@ void interruptPinCallback(const struct device *dev, struct gpio_callback *cb, ui
     k_sem_give(&qmc5883lSem);
 }
 
-#define QMC5883L DT_ALIAS(compass)
-#define INTERRUPT DT_PATH(zephyr_user)
-
 static void qmc5883lTask(void) {
     k_thread_name_set(qmc5883lThread, "qmc5883l");
 
-    const struct gpio_dt_spec interruptPin = GPIO_DT_SPEC_GET(INTERRUPT, int_gpios);
-    const struct i2c_dt_spec qmc5883l = I2C_DT_SPEC_GET(QMC5883L);
+    const struct gpio_dt_spec interruptPin = GPIO_DT_SPEC_GET(DT_ALIAS(compass), int_gpios);
+    const struct i2c_dt_spec qmc5883l = I2C_DT_SPEC_GET(DT_ALIAS(compass));
 
     __ASSERT(gpio_is_ready_dt(&interruptPin), "Interrupt GPIO not ready!");
     __ASSERT(i2c_is_ready_dt(&qmc5883l), "QMC5883L I2C not ready!");

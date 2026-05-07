@@ -1,4 +1,4 @@
-description: "Charlieplexing 7 Segment Display"
+description: Charlieplexing 7 Segment Display
 compatible: "Ch7SegDisplay"
 include: base.yaml
 

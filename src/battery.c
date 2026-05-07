@@ -14,7 +14,7 @@ K_THREAD_DEFINE(batteryThread, 1024, batteryTask, NULL, NULL, NULL, 10, 0, 0);
 #define LOW_BATTERY_THRESHOLD_VOLTS_1 7
 #define LOW_BATTERY_THRESHOLD_VOLTS_2 500000
 
-#define BATTERY_UPDATE_INTERVAL K_SECONDS(1)
+#define BATTERY_UPDATE_INTERVAL K_SECONDS(10)
 
 static void batteryTask(void) {
     k_thread_name_set(batteryThread, "battery");

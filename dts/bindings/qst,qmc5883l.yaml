@@ -1,0 +1,8 @@
+description: QST QMC5883L
+compatible: "qst,qmc5883l"
+include: i2c-device.yaml
+
+properties:
+  int-gpios:
+    type: phandle-array
+    description: DRDY
