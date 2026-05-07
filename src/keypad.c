@@ -14,8 +14,7 @@ K_EVENT_DEFINE(batteryKeyEvent);
 K_EVENT_DEFINE(navigationEvent);
 K_EVENT_DEFINE(compassKeyEvent);
 
-#define KEY_HOLD_TIME_MS 250
-#define KEY_DEBOUNCE_TIME_MS 10
+#define KEY_HOLD_TIME_MS 500
 
 static const struct gpio_dt_spec batteryKey = GPIO_DT_SPEC_GET(DT_ALIAS(battery_key), gpios);
 static const struct gpio_dt_spec leftKey = GPIO_DT_SPEC_GET(DT_ALIAS(left_key), gpios);
@@ -60,7 +59,6 @@ void actionKeyCallback(const struct device *dev, struct gpio_callback *cb, uint3
 #define STATE_RELEASE 0
 #define STATE_PRESS 1
 #define STATE_HELD 2
-#define STATE_DEBOUNCE 3
 
 static void keypadTask(void) {
     k_thread_name_set(keypadThread, "keypad");
@@ -107,16 +105,8 @@ static void keypadTask(void) {
         switch (batteryKeyState) {
             case STATE_RELEASE:
                 if (bHold) {
-                    batteryKeyState = STATE_DEBOUNCE;
-                    batteryKeyTime = now;
-                }
-                break;
-
-            case STATE_DEBOUNCE:
-                if (now - batteryKeyTime >= KEY_DEBOUNCE_TIME_MS) {
                     batteryKeyState = STATE_PRESS;
-                } else if (!bHold) {
-                    batteryKeyState = STATE_RELEASE;
+                    batteryKeyTime = now;
                 }
                 break;
 
@@ -149,6 +139,7 @@ static void keypadTask(void) {
             case STATE_PRESS:
                 if (now - leftKeyTime >= KEY_HOLD_TIME_MS) {
                     leftKeyState = STATE_HELD;
+                    k_event_post(&compassKeyEvent, KEY_EVT_COMPASS_CALIBRATE);
                 } else if (!lHold) {
                     leftKeyState = STATE_RELEASE;
                     k_event_post(&navigationEvent, KEY_EVT_NAVIGATION_LEFT);
@@ -173,6 +164,7 @@ static void keypadTask(void) {
             case STATE_PRESS:
                 if (now - rightKeyTime >= KEY_HOLD_TIME_MS) {
                     rightKeyState = STATE_HELD;
+                    k_event_post(&compassKeyEvent, KEY_EVT_COMPASS_RESET_START);
                 } else if (!rHold) {
                     rightKeyState = STATE_RELEASE;
                     k_event_post(&navigationEvent, KEY_EVT_NAVIGATION_RIGHT);
@@ -182,6 +174,7 @@ static void keypadTask(void) {
             case STATE_HELD:
                 if (!rHold) {
                     rightKeyState = STATE_RELEASE;
+                    k_event_post(&compassKeyEvent, KEY_EVT_COMPASS_RESET_STOP);
                 }
                 break;
         }

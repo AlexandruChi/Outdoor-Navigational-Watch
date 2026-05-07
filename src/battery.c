@@ -1,4 +1,3 @@
-#include "battery.h"
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/sensor.h>
@@ -9,10 +8,11 @@
 
 static void batteryTask(void);
 
-K_THREAD_DEFINE(batteryThread, 1024, batteryTask, NULL, NULL, NULL, 7, 0, 0);
+K_THREAD_DEFINE(batteryThread, 1024, batteryTask, NULL, NULL, NULL, 10, 0, 0);
 
+/* Ni-Mh battery HF9 (min 7.0 V) */
 #define LOW_BATTERY_THRESHOLD_VOLTS_1 7
-#define LOW_BATTERY_THRESHOLD_VOLTS_2 700000
+#define LOW_BATTERY_THRESHOLD_VOLTS_2 500000
 
 #define BATTERY_UPDATE_INTERVAL K_SECONDS(1)
 
@@ -21,16 +21,13 @@ static void batteryTask(void) {
 
     const struct gpio_dt_spec batteryLed = GPIO_DT_SPEC_GET(DT_ALIAS(battery_led), gpios);
     const struct device *batteryADC = DEVICE_DT_GET(DT_ALIAS(battery_adc));
-    // const struct device *dieADC = DEVICE_DT_GET(DT_ALIAS(die_temp));
 
     __ASSERT(gpio_is_ready_dt(&batteryLed), "Battery LED GPIO not ready!");
     __ASSERT(device_is_ready(batteryADC), "Battery ADC not ready!");
-    // __ASSERT(device_is_ready(dieADC), "Die Temperature sensor not ready!");
 
     gpio_pin_configure_dt(&batteryLed, GPIO_OUTPUT_INACTIVE);
 
     struct sensor_value voltage;
-    // struct sensor_value dieTemp;
 
     bool printValues = false;
     bool displayOn = false;
@@ -68,11 +65,5 @@ static void batteryTask(void) {
         if (printValues) {
             setSegmentDisplayValue(voltage.val1 % 100 * 10 + voltage.val2 / 100000, K_FOREVER);
         }
-
-        // if (sensor_sample_fetch(dieADC) == 0) {
-        //     sensor_channel_get(dieADC, SENSOR_CHAN_DIE_TEMP, &dieTemp);
-            
-        //     printk("Internal Temp: %d.%06d C\n", dieTemp.val1, dieTemp.val2);
-        // }
     }
 }

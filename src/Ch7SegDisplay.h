@@ -3,6 +3,8 @@
 
 #include <zephyr/kernel.h>
 
+#define DISPLAY_FORMAT_NONE 0b0000
+
 #define DISPLAY_DOT_NONE  0b0000
 #define DISPLAY_DOT_RIGHT 0b0001
 #define DISPLAY_DOT_LEFT  0b0010

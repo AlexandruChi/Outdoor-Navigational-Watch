@@ -84,7 +84,7 @@ static void altimeterTask(void) {
                 .altitude = altitude.val1,
                 .adjAltitude = adjAltitude.val1,
                 .environment = {
-                    .pressure = (pressure.val1 + (pressure.val2 / 1000000.0f)) * 100.0f,
+                    .pressure = (pressure.val1 + (pressure.val2 / 1000000.0f)) * 1000.0f,
                     .temperature = temp.val1 + (temp.val2 / 1000000.0f),
                     .humidity = humidity.val1 + (humidity.val2 / 1000000.0f),
                 },

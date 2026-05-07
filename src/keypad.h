@@ -11,6 +11,9 @@
 
 #define KEY_EVT_COMPASS_ON BIT(0)
 #define KEY_EVT_COMPASS_OFF BIT(1)
+#define KEY_EVT_COMPASS_CALIBRATE BIT(2)
+#define KEY_EVT_COMPASS_RESET_START BIT(3)
+#define KEY_EVT_COMPASS_RESET_STOP BIT(4)
 
 extern struct k_event batteryKeyEvent;
 extern struct k_event navigationEvent;

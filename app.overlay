@@ -218,7 +218,3 @@
         reg = <0x76>;
     };
 };
-
-&die_temp {
-    status = "okay";
-};

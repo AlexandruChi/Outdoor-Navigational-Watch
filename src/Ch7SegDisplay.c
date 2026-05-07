@@ -6,8 +6,6 @@ static void segmentDisplayTask(void);
 K_THREAD_DEFINE(segmentDisplayThread, 1024, segmentDisplayTask, NULL, NULL, NULL, 1, 0, 0);
 K_MUTEX_DEFINE(segmentDisplayDataMutex);
 
-// TODO: use atomic variable for value and atomic bit flags for on/off and format
-
 static volatile bool display = 0;
 static volatile uint16_t val = 0;
 static volatile uint8_t frm = 0;
