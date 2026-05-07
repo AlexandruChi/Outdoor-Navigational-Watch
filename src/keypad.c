@@ -190,7 +190,7 @@ static void keypadTask(void) {
             case STATE_PRESS:
                 if (now - actionKeyTime >= KEY_HOLD_TIME_MS) {
                     actionKeyState = STATE_HELD;
-                    k_event_post(&compassKeyEvent, KEY_EVT_COMPASS_ON);
+                    k_event_post(&compassKeyEvent, KEY_EVT_COMPASS);
                 } else if (!aHold) {
                     actionKeyState = STATE_RELEASE;
                     k_event_post(&navigationEvent, KEY_EVT_NAVIGATION_SELECT);
@@ -200,7 +200,6 @@ static void keypadTask(void) {
             case STATE_HELD:
                 if (!aHold) {
                     actionKeyState = STATE_RELEASE;
-                    k_event_post(&compassKeyEvent, KEY_EVT_COMPASS_OFF);
                 }
                 break;
         }

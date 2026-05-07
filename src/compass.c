@@ -34,25 +34,30 @@ static struct {
 static void compassTask(void) {
     k_thread_name_set(compassThread, "compass");
 
-    bool printValues = false;
     bool displayOn = false;
 
     while (1) {
-        uint32_t events = k_event_wait(&compassKeyEvent, (KEY_EVT_COMPASS_ON | KEY_EVT_COMPASS_OFF | KEY_EVT_COMPASS_CALIBRATE | KEY_EVT_COMPASS_RESET_START), true, COMPASS_UPDATE_INTERVAL);
+        uint32_t events = k_event_wait(&compassKeyEvent, (KEY_EVT_COMPASS | KEY_EVT_COMPASS_CALIBRATE | KEY_EVT_COMPASS_RESET_START), true, K_FOREVER);
 
         // Check if display is used by a different task
         isSegmentDisplayOn(&displayOn, K_FOREVER);
-        if (!printValues && displayOn) {
+        if (displayOn) {
             continue;
         }
 
-        if (events & KEY_EVT_COMPASS_ON) {
-            printValues = true;
+        if (events & KEY_EVT_COMPASS) {
             setSegmentDisplayFormat(DISPLAY_DIGIT_ALWAYS_ALL, K_FOREVER);
             setSegmentDisplayOn(K_FOREVER);
 
-        } else if (events & KEY_EVT_COMPASS_OFF) {
-            printValues = false;
+            while (1) {
+                setSegmentDisplayValue(atomic_get(&whole_heading), K_FOREVER);
+
+                uint32_t event_end = k_event_wait(&compassKeyEvent, (KEY_EVT_COMPASS), true, COMPASS_UPDATE_INTERVAL);
+                if (event_end & KEY_EVT_COMPASS) {
+                    break;
+                }
+            }
+
             setSegmentDisplayValue(0, K_FOREVER);
             setSegmentDisplayFormat(0, K_FOREVER);
             setSegmentDisplayOff(K_FOREVER);
@@ -105,10 +110,6 @@ static void compassTask(void) {
             setSegmentDisplayValue(0, K_FOREVER);
             setSegmentDisplayFormat(0, K_FOREVER);
             setSegmentDisplayOff(K_FOREVER);
-        }
-
-        if (printValues) {
-            setSegmentDisplayValue(atomic_get(&whole_heading), K_FOREVER);
         }
     }
 }

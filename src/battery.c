@@ -33,8 +33,6 @@ static void batteryTask(void) {
     bool displayOn = false;
 
     while (1) {
-        uint32_t events = k_event_wait(&batteryKeyEvent, (KEY_EVT_BATTERY_ON | KEY_EVT_BATTERY_OFF), true, BATTERY_UPDATE_INTERVAL);
-
         if (sensor_sample_fetch(batteryADC) == 0) {
             sensor_channel_get(batteryADC, SENSOR_CHAN_VOLTAGE, &voltage);
 
@@ -44,6 +42,8 @@ static void batteryTask(void) {
                 gpio_pin_set_dt(&batteryLed, 0);
             }
         }
+
+        uint32_t events = k_event_wait(&batteryKeyEvent, (KEY_EVT_BATTERY_ON | KEY_EVT_BATTERY_OFF), true, BATTERY_UPDATE_INTERVAL);
 
         // Check if disp[lay is used by a different task
         isSegmentDisplayOn(&displayOn, K_FOREVER);
