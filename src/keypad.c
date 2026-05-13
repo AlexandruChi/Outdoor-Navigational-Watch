@@ -63,10 +63,25 @@ void actionKeyCallback(const struct device *dev, struct gpio_callback *cb, uint3
 static void keypadTask(void) {
     k_thread_name_set(keypadThread, "keypad");
 
-    __ASSERT(gpio_is_ready_dt(&batteryKey), "Battery Key GPIO not ready!");
-    __ASSERT(gpio_is_ready_dt(&leftKey), "Left Key GPIO not ready!");
-    __ASSERT(gpio_is_ready_dt(&rightKey), "Right Key GPIO not ready!");
-    __ASSERT(gpio_is_ready_dt(&actionKey), "Action Key GPIO not ready!");
+    if (!gpio_is_ready_dt(&batteryKey)) {
+        printk("Battery Key GPIO not ready!\n");
+        k_panic();
+    }
+    
+    if (!gpio_is_ready_dt(&leftKey)) {
+        printk("Left Key GPIO not ready!\n");
+        k_panic();
+    }
+
+    if (!gpio_is_ready_dt(&rightKey)) {
+        printk("Right Key GPIO not ready!\n");
+        k_panic();
+    }
+    
+    if (!gpio_is_ready_dt(&actionKey)) {
+        printk("Action Key GPIO not ready!\n");
+        k_panic();
+    }
 
     gpio_pin_configure_dt(&batteryKey, GPIO_INPUT);
     gpio_pin_interrupt_configure_dt(&batteryKey, GPIO_INT_EDGE_BOTH);

@@ -37,7 +37,8 @@ static void compassTask(void) {
     bool displayOn = false;
 
     while (1) {
-        uint32_t events = k_event_wait(&compassKeyEvent, (KEY_EVT_COMPASS | KEY_EVT_COMPASS_CALIBRATE | KEY_EVT_COMPASS_RESET_START), true, K_FOREVER);
+        uint32_t events = k_event_wait(&compassKeyEvent, (KEY_EVT_COMPASS | KEY_EVT_COMPASS_CALIBRATE | KEY_EVT_COMPASS_RESET_START), false, K_FOREVER);
+        k_event_set(&compassKeyEvent, 0);
 
         // Check if display is used by a different task
         isSegmentDisplayOn(&displayOn, K_FOREVER);
@@ -52,7 +53,8 @@ static void compassTask(void) {
             while (1) {
                 setSegmentDisplayValue(atomic_get(&whole_heading), K_FOREVER);
 
-                uint32_t event_end = k_event_wait(&compassKeyEvent, (KEY_EVT_COMPASS), true, COMPASS_UPDATE_INTERVAL);
+                uint32_t event_end = k_event_wait(&compassKeyEvent, (KEY_EVT_COMPASS), false, COMPASS_UPDATE_INTERVAL);
+                k_event_set(&compassKeyEvent, 0);
                 if (event_end & KEY_EVT_COMPASS) {
                     break;
                 }
@@ -69,7 +71,8 @@ static void compassTask(void) {
             uint16_t i;
             for (i = CALIBRATION_SECONDS; i > 0; i--) {
                 setSegmentDisplayValue(i, K_FOREVER);
-                uint32_t event_end = k_event_wait(&compassKeyEvent, (KEY_EVT_COMPASS_CALIBRATE), true, K_SECONDS(1));
+                uint32_t event_end = k_event_wait(&compassKeyEvent, (KEY_EVT_COMPASS_CALIBRATE), false, K_SECONDS(1));
+                k_event_set(&compassKeyEvent, 0);
                 if (event_end & KEY_EVT_COMPASS_CALIBRATE) {
                     k_sem_give(&qmc5883lCalibrateCancel);
                     break;
@@ -91,7 +94,8 @@ static void compassTask(void) {
             uint16_t i;
             for (i = RESET_SECONDS; i > 0; i--) {
                 setSegmentDisplayValue(i, K_FOREVER);
-                uint32_t event_end = k_event_wait(&compassKeyEvent, (KEY_EVT_COMPASS_RESET_STOP), true, K_SECONDS(1));
+                uint32_t event_end = k_event_wait(&compassKeyEvent, (KEY_EVT_COMPASS_RESET_STOP), false, K_SECONDS(1));
+                k_event_set(&compassKeyEvent, 0);
                 if (event_end & KEY_EVT_COMPASS_RESET_STOP) {
                     break;
                 }
@@ -101,7 +105,8 @@ static void compassTask(void) {
                 setSegmentDisplayFormat(DISPLAY_DIGIT_ALWAYS_ALL, K_FOREVER);
                 setSegmentDisplayValue(0, K_FOREVER);
 
-                uint32_t event_end = k_event_wait(&compassKeyEvent, (KEY_EVT_COMPASS_RESET_STOP), true, K_FOREVER);
+                uint32_t event_end = k_event_wait(&compassKeyEvent, (KEY_EVT_COMPASS_RESET_STOP), false, K_FOREVER);
+                k_event_set(&compassKeyEvent, 0);
                 if (event_end & KEY_EVT_COMPASS_RESET_STOP) {
                     k_sem_give(&qmc5883lCalibrateReset);
                 }
@@ -126,8 +131,15 @@ static void qmc5883lTask(void) {
     const struct gpio_dt_spec interruptPin = GPIO_DT_SPEC_GET(DT_ALIAS(compass), int_gpios);
     const struct i2c_dt_spec qmc5883l = I2C_DT_SPEC_GET(DT_ALIAS(compass));
 
-    __ASSERT(gpio_is_ready_dt(&interruptPin), "Interrupt GPIO not ready!");
-    __ASSERT(i2c_is_ready_dt(&qmc5883l), "QMC5883L I2C not ready!");
+    if (!gpio_is_ready_dt(&interruptPin)) {
+        printk("Interrupt GPIO not ready!\n");
+        k_panic();
+    }
+
+    if (!i2c_is_ready_dt(&qmc5883l)) {
+        printk("QMC5883L I2C not ready!\n");
+        k_panic();
+    }
 
     gpio_pin_configure_dt(&interruptPin, GPIO_INPUT);
     gpio_pin_interrupt_configure_dt(&interruptPin, GPIO_INT_EDGE_TO_ACTIVE);

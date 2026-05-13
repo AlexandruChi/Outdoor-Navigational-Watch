@@ -4,7 +4,8 @@
 
 static void altimeterTask(void);
 
-#define UPDATE_INTERVAL_MS 1000
+#define ALTIMETER_UPDATE_INTERVAL K_MSEC(200)
+#define ALTIMETER_MISS_US 100
 
 K_THREAD_DEFINE(altimeterThread, 1024, altimeterTask, NULL, NULL, NULL, 7, 0, 0);
 K_MUTEX_DEFINE(altimeterMutex);
@@ -49,15 +50,28 @@ static inline void adjustAltitude(const struct sensor_value *altitude, const str
     adjustedAltitude->val2 = (int32_t)((altitude_m - adjustedAltitude->val1) * 1000000);
 }
 
+atomic_t altimeterMissCount = ATOMIC_INIT(0);
+atomic_t altimeterLatencyUs = ATOMIC_INIT(0);
+atomic_t altimeterJitterUs = ATOMIC_INIT(0);
+
 static void altimeterTask(void) {
     k_thread_name_set(altimeterThread, "altimeter");
 
     const struct device *altimeter = DEVICE_DT_GET(DT_ALIAS(altimeter));
 
-    __ASSERT(device_is_ready(altimeter), "Altimeter not ready!");
+    if (!device_is_ready(altimeter)) {
+        printk("Altimeter not ready!\n");
+        k_panic();
+    }
 
-    int64_t interval = k_ms_to_ticks_near64(UPDATE_INTERVAL_MS);
-    int64_t next_wake_time = k_uptime_ticks();
+    int64_t interval = ALTIMETER_UPDATE_INTERVAL.ticks;
+    int64_t expected_wake_time = 0;
+    int64_t next_wake_time = 0;
+
+    uint64_t drift_current_us = 0;
+    uint64_t drift_min_us = INT64_MAX;
+    uint64_t drift_max_us = 0;
+    uint64_t drift_us = 0;
 
     struct sensor_value pressure;
     struct sensor_value temp;
@@ -65,10 +79,9 @@ static void altimeterTask(void) {
     struct sensor_value altitude;
     struct sensor_value adjAltitude;
 
-    while (1) {
-        k_sleep(K_TIMEOUT_ABS_TICKS(next_wake_time));
-        next_wake_time = k_uptime_ticks() + interval;
+    next_wake_time = k_uptime_ticks() + interval;
 
+    while (1) {
         if (sensor_sample_fetch(altimeter) == 0) {
             sensor_channel_get(altimeter, SENSOR_CHAN_PRESS, &pressure);
             sensor_channel_get(altimeter, SENSOR_CHAN_AMBIENT_TEMP, &temp);
@@ -95,5 +108,21 @@ static void altimeterTask(void) {
                 k_mutex_unlock(&returnAltimeterMutex);
             }
         }
+
+        drift_min_us = MIN(drift_min_us, drift_current_us);
+        drift_max_us = MAX(drift_max_us, drift_current_us);
+        drift_us = MAX(atomic_get(&altimeterLatencyUs), drift_current_us);
+
+        if (drift_current_us > ALTIMETER_MISS_US) {
+            atomic_inc(&altimeterMissCount);
+        }
+
+        atomic_set(&altimeterLatencyUs, drift_us);
+        atomic_set(&altimeterJitterUs, drift_max_us - drift_min_us);
+
+        expected_wake_time = next_wake_time;
+        k_sleep(K_TIMEOUT_ABS_TICKS(next_wake_time));
+        drift_current_us = k_ticks_to_us_near64(k_uptime_ticks() - expected_wake_time);
+        next_wake_time += interval;
     }
 }

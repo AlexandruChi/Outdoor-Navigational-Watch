@@ -5,6 +5,7 @@ static void segmentDisplayTask(void);
 
 K_THREAD_DEFINE(segmentDisplayThread, 1024, segmentDisplayTask, NULL, NULL, NULL, 1, 0, 0);
 K_MUTEX_DEFINE(segmentDisplayDataMutex);
+K_SEM_DEFINE(segmentDisplaySem, 0, 1);
 
 static volatile bool display = 0;
 static volatile uint16_t val = 0;
@@ -18,6 +19,7 @@ int setSegmentDisplayOn(k_timeout_t timeout) {
 
     display = 1;
     k_mutex_unlock(&segmentDisplayDataMutex);
+    k_sem_give(&segmentDisplaySem);
     return 0;
 }
 
@@ -70,6 +72,7 @@ static const struct gpio_dt_spec displayPins[] = {
 };
 
 #define SEGMENT_TIME_US 500
+#define SEGMENT_MISS_US 100
 
 #define SEGMENT_NONE 24
 #define NR_SEGMENTS 23
@@ -127,85 +130,127 @@ static inline uint32_t toSegments(uint8_t d2, uint8_t s1, uint8_t d1, uint8_t s0
     return s0 << DOT_0_OFFSET | s1 << DOT_1_OFFSET | digitSegments[d0] << DIGIT_0_OFFSET | digitSegments[d1] << DIGIT_1_OFFSET | digitSegments[d2] << DIGIT_2_OFFSET;
 }
 
+static uint32_t getSegments(k_timeout_t timeout) {
+    static uint32_t segments = 0;
+    static uint8_t format = 0;
+    static uint16_t value = 0;
+
+    if (!k_mutex_lock(&segmentDisplayDataMutex, timeout)) {
+        if (!display) {
+            k_mutex_unlock(&segmentDisplayDataMutex);
+            return 0;
+        }
+
+        if (value != val || format != frm) {
+            value = val;
+            format = frm;
+        } else {
+            k_mutex_unlock(&segmentDisplayDataMutex);
+            return segments;
+        }
+
+        k_mutex_unlock(&segmentDisplayDataMutex);
+
+    } else {
+        return segments;
+    }
+
+    uint8_t d0 = value % 10;
+    uint8_t d1 = (value / 10) % 10;
+    uint8_t d2 = (value / 100) % 10;
+
+    switch (format & 0b1100) {
+        case DISPLAY_DIGIT_ALWAYS_NONE:
+            d1 = (d1 || d2) ? d1 : DIGIT_NONE;
+            /* no break */
+
+        case DISPLAY_DIGIT_ALWAYS_MIDDLE:
+            d2 = d2 ? d2 : DIGIT_NONE;
+            /* no break */
+
+        case DISPLAY_DIGIT_ALWAYS_ALL:
+            break;
+    }
+
+    switch (format & 0b11) {
+        case DISPLAY_DOT_NONE:
+            segments = toSegments(d2, DOT_OFF, d1, DOT_OFF, d0);
+            break;
+
+        case DISPLAY_DOT_RIGHT:
+            segments = toSegments(d2, DOT_OFF, d1, DOT_ON, d0);
+            break;
+
+        case DISPLAY_DOT_LEFT:
+            segments = toSegments(d2, DOT_ON, d1, DOT_OFF, d0);
+            break;
+
+        case DISPLAY_DOT_BOTH:
+            segments = toSegments(d2, DOT_ON, d1, DOT_ON, d0);
+            break;
+    }
+
+    return segments;
+}
+
+atomic_t segmentDisplayMissCount = ATOMIC_INIT(0);
+atomic_t segmentDisplayLatencyUs = ATOMIC_INIT(0);
+atomic_t segmentDisplayJitterUs = ATOMIC_INIT(0);
+
 static void segmentDisplayTask(void) {
     k_thread_name_set(segmentDisplayThread, "segmentDisplay");
 
     for (size_t i = 0; i < ARRAY_SIZE(displayPins); i++) {
-        __ASSERT(gpio_is_ready_dt(&displayPins[i]), "Display GPIO %zu not ready!", i);
+        if (gpio_is_ready_dt(&displayPins[i])) {
+            gpio_pin_configure_dt(&displayPins[i], GPIO_INPUT); 
+        } else {
+            printk("Display GPIO %zu not ready!\n", i);
+            k_panic();
+        }
     }
 
-    setSegment(SEGMENT_NONE);
-
     int64_t interval = k_us_to_ticks_near64(SEGMENT_TIME_US);
+    int64_t expected_wake_time = 0;
     int64_t next_wake_time = 0;
-    
     uint32_t segments = 0;
-    uint16_t value = 0;
-    uint8_t format = 0;
+
+    uint64_t drift_current_us = 0;
+    uint64_t drift_min_us = INT64_MAX;
+    uint64_t drift_max_us = 0;
+    uint64_t drift_us = 0;
 
     while (1) {
-        if (segments) {
+        if (!segments) {
+            setSegment(SEGMENT_NONE);
+            k_sem_take(&segmentDisplaySem, K_FOREVER);
+            segments = getSegments(K_FOREVER);
+            next_wake_time = k_uptime_ticks() + interval;
+        } else {
             for (uint8_t i = 0; i < NR_SEGMENTS; i++) {
-                k_sleep(K_TIMEOUT_ABS_TICKS(next_wake_time));
-                next_wake_time = k_uptime_ticks() + interval;
+                segments = getSegments(K_TIMEOUT_ABS_TICKS(next_wake_time));
 
                 if (segments & BIT(i)) {
                     setSegment(i);
                 } else {
                     setSegment(SEGMENT_NONE);
                 }
-            }
-        } else {
-            k_sleep(K_TIMEOUT_ABS_TICKS(next_wake_time));
-            setSegment(SEGMENT_NONE);
-            k_sleep(K_MSEC(10));
-        }
 
-        if (!k_mutex_lock(&segmentDisplayDataMutex, K_TIMEOUT_ABS_TICKS(next_wake_time))) {
-            if (display) {
-                value = val;
-                format = frm;
+                drift_min_us = MIN(drift_min_us, drift_current_us);
+                drift_max_us = MAX(drift_max_us, drift_current_us);
+                drift_us = MAX(atomic_get(&segmentDisplayLatencyUs), drift_current_us);
 
-                k_mutex_unlock(&segmentDisplayDataMutex);
-
-                uint8_t d0 = value % 10;
-                uint8_t d1 = (value / 10) % 10;
-                uint8_t d2 = (value / 100) % 10;
-
-                switch (format & 0b1100) {
-                    case DISPLAY_DIGIT_ALWAYS_NONE:
-                        d1 = (d1 || d2) ? d1 : DIGIT_NONE;
-                        /* no break */
-
-                    case DISPLAY_DIGIT_ALWAYS_MIDDLE:
-                        d2 = d2 ? d2 : DIGIT_NONE;
-                        /* no break */
-
-                    case DISPLAY_DIGIT_ALWAYS_ALL:
-                        break;
+                if (drift_current_us > SEGMENT_MISS_US) {
+                    atomic_inc(&segmentDisplayMissCount);
                 }
 
-                switch (format & 0b11) {
-                    case DISPLAY_DOT_NONE:
-                        segments = toSegments(d2, DOT_OFF, d1, DOT_OFF, d0);
-                        break;
+                atomic_set(&segmentDisplayLatencyUs, drift_us);
+                atomic_set(&segmentDisplayJitterUs, drift_max_us - drift_min_us);
 
-                    case DISPLAY_DOT_RIGHT:
-                        segments = toSegments(d2, DOT_OFF, d1, DOT_ON, d0);
-                        break;
-
-                    case DISPLAY_DOT_LEFT:
-                        segments = toSegments(d2, DOT_ON, d1, DOT_OFF, d0);
-                        break;
-
-                    case DISPLAY_DOT_BOTH:
-                        segments = toSegments(d2, DOT_ON, d1, DOT_ON, d0);
-                        break;
-                }
-            } else {
-                k_mutex_unlock(&segmentDisplayDataMutex);
-                segments = 0;
+                expected_wake_time = next_wake_time;
+                k_sleep(K_TIMEOUT_ABS_TICKS(next_wake_time));
+                drift_current_us = k_ticks_to_us_near64(k_uptime_ticks() - expected_wake_time);
+                next_wake_time += interval;
             }
-        }
+        } 
     }
 }

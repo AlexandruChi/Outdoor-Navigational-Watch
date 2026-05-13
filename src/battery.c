@@ -14,7 +14,7 @@ K_THREAD_DEFINE(batteryThread, 1024, batteryTask, NULL, NULL, NULL, 10, 0, 0);
 #define LOW_BATTERY_THRESHOLD_VOLTS_1 7
 #define LOW_BATTERY_THRESHOLD_VOLTS_2 500000
 
-#define BATTERY_UPDATE_INTERVAL K_SECONDS(10)
+#define BATTERY_UPDATE_INTERVAL K_SECONDS(1)
 
 static void batteryTask(void) {
     k_thread_name_set(batteryThread, "battery");
@@ -22,8 +22,15 @@ static void batteryTask(void) {
     const struct gpio_dt_spec batteryLed = GPIO_DT_SPEC_GET(DT_ALIAS(battery_led), gpios);
     const struct device *batteryADC = DEVICE_DT_GET(DT_ALIAS(battery_adc));
 
-    __ASSERT(gpio_is_ready_dt(&batteryLed), "Battery LED GPIO not ready!");
-    __ASSERT(device_is_ready(batteryADC), "Battery ADC not ready!");
+    if (!gpio_is_ready_dt(&batteryLed)) {
+        printk("Battery LED GPIO not ready!\n");
+        k_panic();
+    }
+
+    if (!device_is_ready(batteryADC)) {
+        printk("Battery ADC not ready!\n");
+        k_panic();
+    }
 
     gpio_pin_configure_dt(&batteryLed, GPIO_OUTPUT_INACTIVE);
 
@@ -43,23 +50,24 @@ static void batteryTask(void) {
             }
         }
 
-        uint32_t events = k_event_wait(&batteryKeyEvent, (KEY_EVT_BATTERY_ON | KEY_EVT_BATTERY_OFF), true, BATTERY_UPDATE_INTERVAL);
+        uint32_t events = k_event_wait(&batteryKeyEvent, (KEY_EVT_BATTERY_ON | KEY_EVT_BATTERY_OFF), false, BATTERY_UPDATE_INTERVAL);
+        k_event_set(&batteryKeyEvent, 0);
 
-        // Check if disp[lay is used by a different task
+        // Check if display is used by a different task
         isSegmentDisplayOn(&displayOn, K_FOREVER);
         if (!printValues && displayOn) {
             continue;
         }
 
-        if (events & KEY_EVT_BATTERY_ON) {
-            printValues = true;
-            setSegmentDisplayFormat(DISPLAY_DIGIT_ALWAYS_MIDDLE | DISPLAY_DOT_RIGHT, K_FOREVER);
-            setSegmentDisplayOn(K_FOREVER);
-        } else if (events & KEY_EVT_BATTERY_OFF) {
-            printValues = false;
+        if (events & KEY_EVT_BATTERY_OFF) {
             setSegmentDisplayValue(0, K_FOREVER);
             setSegmentDisplayFormat(0, K_FOREVER);
             setSegmentDisplayOff(K_FOREVER);
+            printValues = false;
+        } else if (events & KEY_EVT_BATTERY_ON) {
+            setSegmentDisplayFormat(DISPLAY_DIGIT_ALWAYS_MIDDLE | DISPLAY_DOT_RIGHT, K_FOREVER);
+            setSegmentDisplayOn(K_FOREVER);
+            printValues = true;
         }
 
         if (printValues) {

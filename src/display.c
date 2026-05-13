@@ -11,6 +11,8 @@
 
 static void displayTask(void);
 
+#define DISPLAY_UPDATE_INTERVAL K_MSEC(100)
+
 K_THREAD_DEFINE(displayThread, 1024, displayTask, NULL, NULL, NULL, 5, 0, 0);
 
 struct page {
@@ -66,18 +68,24 @@ static void displayTask(void) {
 
     const struct device *display = DEVICE_DT_GET(DT_ALIAS(display));
 
-    __ASSERT(device_is_ready(display), "Display not ready!");
+    if (!device_is_ready(display)) {
+        printk("Display not ready!\n");
+        k_panic();
+    }
 
     if (cfb_framebuffer_init(display)) {
-        printf("CFB initialization failed!\n");
+        printk("CFB initialization failed!\n");
+        k_panic();
     }
 
     if (cfb_framebuffer_clear(display, true)) {
-        printf("Failed to clear framebuffer\n");
+        printk("Failed to clear framebuffer\n");
+        k_panic();
     }
 
     if (cfb_framebuffer_set_font(display, 0)) {
-        printf("Failed to set font\n");
+        printk("Failed to set font\n");
+        k_panic();
     }
 
     display_blanking_on(display);
@@ -86,7 +94,8 @@ static void displayTask(void) {
     bool displayOn = false;
 
     while (1) {
-        uint32_t events = k_event_wait(&navigationEvent, (KEY_EVT_NAVIGATION_POWER | KEY_EVT_NAVIGATION_LEFT | KEY_EVT_NAVIGATION_RIGHT | KEY_EVT_NAVIGATION_SELECT), true, K_SECONDS(1));
+        uint32_t events = k_event_wait(&navigationEvent, (KEY_EVT_NAVIGATION_POWER | KEY_EVT_NAVIGATION_LEFT | KEY_EVT_NAVIGATION_RIGHT | KEY_EVT_NAVIGATION_SELECT), false, DISPLAY_UPDATE_INTERVAL);
+        k_event_set(&navigationEvent, 0);
 
         if (displayOn == false) {
             if (events & KEY_EVT_NAVIGATION_POWER) {
@@ -103,13 +112,13 @@ static void displayTask(void) {
                 continue;
             }
             
-            if (events & KEY_EVT_NAVIGATION_LEFT) {
-                int currentPageIndex = currentPage - pages;
-                currentPageIndex = (currentPageIndex - 1 + ARRAY_SIZE(pages)) % ARRAY_SIZE(pages);
-                currentPage = &pages[currentPageIndex];
-            } else if (events & KEY_EVT_NAVIGATION_RIGHT) {
+            if (events & KEY_EVT_NAVIGATION_RIGHT) {
                 int currentPageIndex = currentPage - pages;
                 currentPageIndex = (currentPageIndex + 1) % ARRAY_SIZE(pages);
+                currentPage = &pages[currentPageIndex];
+            } else if (events & KEY_EVT_NAVIGATION_LEFT) {
+                int currentPageIndex = currentPage - pages;
+                currentPageIndex = (currentPageIndex - 1 + ARRAY_SIZE(pages)) % ARRAY_SIZE(pages);
                 currentPage = &pages[currentPageIndex];
             } else if (events & KEY_EVT_NAVIGATION_SELECT) {
                 if (currentPage->action) {
@@ -264,5 +273,4 @@ void renderGnssPage(struct page *page) {
     cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 17);
     snprintf(buffer, sizeof(buffer), "%s", gnssData.gnss.fixStatus);
     cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 30);
-
 }

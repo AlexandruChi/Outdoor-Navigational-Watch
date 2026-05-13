@@ -5,7 +5,7 @@ The project aims at building a watch designed to offer real-time information abo
 ## Hardware
 
 ### Processing Unit
-* **Microcontroller:** Raspberry Pi Pico 2 (RP2350, utilising dual ARM Cortex-M33 cores)
+* **Microcontroller:** Raspberry Pi Pico 2W (RP2350, utilising dual ARM Cortex-M33 cores)
 
 ### Sensors
 * **GNSS Module:** ATGM336H-5N (Geographical Position & UTC Time)
