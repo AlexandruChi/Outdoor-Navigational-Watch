@@ -11,8 +11,8 @@ static void batteryTask(void);
 K_THREAD_DEFINE(batteryThread, 1024, batteryTask, NULL, NULL, NULL, 10, 0, 0);
 
 /* Ni-Mh battery HF9 (min 7.0 V) */
-#define LOW_BATTERY_THRESHOLD_VOLTS_1 7
-#define LOW_BATTERY_THRESHOLD_VOLTS_2 500000
+#define LOW_BATTERY_THRESHOLD_VOLTS_1 8
+#define LOW_BATTERY_THRESHOLD_VOLTS_2 0
 
 #define BATTERY_UPDATE_INTERVAL K_SECONDS(1)
 

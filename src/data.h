@@ -23,17 +23,18 @@ typedef struct {
 typedef struct {
     float latitude;
     float longitude;
-} position_t; // in degrees
+} position_t; // º
 
 typedef int32_t altitude_t;
 
 typedef struct {
-    float temperature; // Celsius
+    float temperature; // ºC
     float pressure; // Pa
     float humidity; // %
+    float absHumidity; // g/m³
 } environment_t;
 
-typedef uint16_t heading_t; // degrees
+typedef uint16_t heading_t; // º
 
 typedef float speed_t; // m/s
 

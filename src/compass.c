@@ -11,6 +11,8 @@ static void qmc5883lTask(void);
 #define CALIBRATION_SECONDS 30
 #define RESET_SECONDS 5
 
+#define PRINT_CALIBRATION_VALUES 0
+
 K_THREAD_DEFINE(compassThread, 1024, compassTask, NULL, NULL, NULL, 7, 0, 0);
 K_THREAD_DEFINE(qmc5883lThread, 1024, qmc5883lTask, NULL, NULL, NULL, 7, 0, 0);
 K_SEM_DEFINE(qmc5883lSem, 0, 1);
@@ -156,6 +158,9 @@ static void qmc5883lTask(void) {
 
     while (1) {
         if (k_sem_take(&qmc5883lCalibrateReset, K_NO_WAIT) == 0) {
+            #if PRINT_CALIBRATION_VALUES == 1
+            printk("Old calibration: offset=(%f, %f) scale=(%f, %f)\n", (double)calibration.offset.x, (double)calibration.offset.y, (double)calibration.scale.x, (double)calibration.scale.y);
+            #endif
             calibration = calibrationDefault;
         }
 

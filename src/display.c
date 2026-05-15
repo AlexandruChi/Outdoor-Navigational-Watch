@@ -25,13 +25,13 @@ struct page {
 void renderTimePage(struct page *page);
 void renderDatePage(struct page *page);
 void renderPositionPage(struct page *page);
-void actionPositionPage(struct page *page);
 void renderAltitudePage(struct page *page);
-void actionAltitudePage(struct page *page);
 void renderEnvironmentPage(struct page *page);
-void actionEnvironmentPage(struct page *page);
 void renderDirectionPage(struct page *page);
 void renderGnssPage(struct page *page);
+
+void actionPageTogState(struct page *page);
+void actionPageIncState(struct page *page);
 
 struct page pages[7] = {
     {
@@ -43,15 +43,15 @@ struct page pages[7] = {
     }, {
         .title = "Position",
         .render = renderPositionPage,
-        .action = actionPositionPage,
+        .action = actionPageIncState,
     }, {
         .title = "Altitude",
         .render = renderAltitudePage,
-        .action = actionAltitudePage,
+        .action = actionPageIncState,
     }, {
         .title = "Environment",
         .render = renderEnvironmentPage,
-        .action = actionEnvironmentPage,
+        .action = actionPageTogState,
     }, {
         .title = "Direction",
         .render = renderDirectionPage,
@@ -150,6 +150,15 @@ void fetchData() {
     altimeterGetData(&altimeterData, K_NO_WAIT);
 }
 
+void actionPageTogState(struct page *page) {
+    page->state = !page->state;
+}
+
+void actionPageIncState(struct page *page) {
+    page->state++;
+    page->state %= 3;
+}
+
 void renderTimePage(struct page *page) {
     char buffer[32];
     snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d", gnssData.datetime.time.hour, gnssData.datetime.time.minute, gnssData.datetime.time.second);
@@ -165,39 +174,88 @@ void renderDatePage(struct page *page) {
 void renderPositionPage(struct page *page) {
     char buffer[32];
 
-    if (page->state) {
-        snprintf(buffer, sizeof(buffer), "Lt %8.3f", (double)gnssData.position.latitude);
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 23);
-        snprintf(buffer, sizeof(buffer), "Ln %8.3f", (double)gnssData.position.longitude);
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 37);
-    } else {
-        uint8_t hLat = gnssData.position.latitude >= 0 ? 'N' : 'S';
-        uint8_t hLon = gnssData.position.longitude >= 0 ? 'E' : 'W';
+    switch (page->state) {
+        case 0:
 
-        float absLat = gnssData.position.latitude >= 0 ? gnssData.position.latitude : -gnssData.position.latitude;
-        float absLon = gnssData.position.longitude >= 0 ? gnssData.position.longitude : -gnssData.position.longitude;
+            {
+                uint8_t hLat = gnssData.position.latitude >= 0 ? 'N' : 'S';
+                uint8_t hLon = gnssData.position.longitude >= 0 ? 'E' : 'W';
 
-        uint8_t latDeg = (uint8_t)absLat;
-        uint8_t latMin = (uint8_t)((absLat - latDeg) * 60);
-        uint8_t latSec = (uint8_t)(((absLat - latDeg) * 60 - latMin) * 60);
+                float absLat = gnssData.position.latitude >= 0 ? gnssData.position.latitude : -gnssData.position.latitude;
+                float absLon = gnssData.position.longitude >= 0 ? gnssData.position.longitude : -gnssData.position.longitude;
 
-        uint8_t lonDeg = (uint8_t)absLon;
-        uint8_t lonMin = (uint8_t)((absLon - lonDeg) * 60);
-        uint8_t lonSec = (uint8_t)(((absLon - lonDeg) * 60 - lonMin) * 60);
+                uint8_t latDeg = (uint8_t)absLat;
+                uint8_t latMin = (uint8_t)((absLat - latDeg) * 60);
+                uint8_t latSec = (uint8_t)(((absLat - latDeg) * 60 - latMin) * 60 + 0.5f);
 
-        snprintf(buffer, sizeof(buffer), "   o");
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 18);
-        snprintf(buffer, sizeof(buffer), "%3d %02d'%02d\" %c", latDeg, latMin, latSec, hLat);
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 23);
-        snprintf(buffer, sizeof(buffer), "   o");
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 32);
-        snprintf(buffer, sizeof(buffer), "%3d %02d'%02d\" %c", lonDeg, lonMin, lonSec, hLon);
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 37);
+                if (latSec == 60) {
+                    latSec = 0;
+                    latMin++;
+                    if (latMin == 60) {
+                        latMin = 0;
+                        latDeg++;
+                    }
+                }
+
+                uint8_t lonDeg = (uint8_t)absLon;
+                uint8_t lonMin = (uint8_t)((absLon - lonDeg) * 60);
+                uint8_t lonSec = (uint8_t)(((absLon - lonDeg) * 60 - lonMin) * 60 + 0.5f);
+
+                if (lonSec == 60) {
+                    lonSec = 0;
+                    lonMin++;
+                    if (lonMin == 60) {
+                        lonMin = 0;
+                        lonDeg++;
+                    }
+                }
+
+                snprintf(buffer, sizeof(buffer), "   o");
+                cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 18);
+                snprintf(buffer, sizeof(buffer), "%3d %02d'%02d\" %c", latDeg, latMin, latSec, hLat);
+                cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 23);
+                snprintf(buffer, sizeof(buffer), "   o");
+                cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 32);
+                snprintf(buffer, sizeof(buffer), "%3d %02d'%02d\" %c", lonDeg, lonMin, lonSec, hLon);
+                cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 37);
+            }
+
+            break;
+
+        case 1:
+
+            {
+                uint8_t hLat = gnssData.position.latitude >= 0 ? 'N' : 'S';
+                uint8_t hLon = gnssData.position.longitude >= 0 ? 'E' : 'W';
+
+                float absLat = gnssData.position.latitude >= 0 ? gnssData.position.latitude : -gnssData.position.latitude;
+                float absLon = gnssData.position.longitude >= 0 ? gnssData.position.longitude : -gnssData.position.longitude;
+
+                uint8_t latDeg = (uint8_t)absLat;
+                float latMin = (float)((absLat - latDeg) * 60);
+
+                uint8_t lonDeg = (uint8_t)absLon;
+                float lonMin = (float)((absLon - lonDeg) * 60);
+
+                snprintf(buffer, sizeof(buffer), "   o");
+                cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 18);
+                snprintf(buffer, sizeof(buffer), "%3d %05.2f' %c", latDeg, (double)latMin, hLat);
+                cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 23);
+                snprintf(buffer, sizeof(buffer), "   o");
+                cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 32);
+                snprintf(buffer, sizeof(buffer), "%3d %05.2f' %c", lonDeg, (double)lonMin, hLon);
+                cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 37);
+            }
+
+            break;
+
+        case 2:
+            snprintf(buffer, sizeof(buffer), "Lt %8.3f", (double)gnssData.position.latitude);
+            cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 23);
+            snprintf(buffer, sizeof(buffer), "Ln %8.3f", (double)gnssData.position.longitude);
+            cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 37);
+            break;
     }
-}
-
-void actionPositionPage(struct page *page) {
-    page->state = !page->state;   
 }
 
 void renderAltitudePage(struct page *page) {
@@ -223,36 +281,28 @@ void renderAltitudePage(struct page *page) {
     }
 }
 
-void actionAltitudePage(struct page *page) {
-    page->state++;
-    if (page->state > 2) {
-        page->state = 0;
-    }
-}
-
 void renderEnvironmentPage(struct page *page) {
     char buffer[32];
 
     if (page->state) {
         snprintf(buffer, sizeof(buffer), "%7.2f K", (double)(altimeterData.environment.temperature + 273.15f));
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 17);
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 17);
         snprintf(buffer, sizeof(buffer), "%7.2f kPa", (double)(altimeterData.environment.pressure / 1000.0f));
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 30);
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 30);
+        snprintf(buffer, sizeof(buffer), "           3");
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 38);
+        snprintf(buffer, sizeof(buffer), "%7.2f g/m", (double)altimeterData.environment.absHumidity);
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 43);
     } else {
         snprintf(buffer, sizeof(buffer), "        o");
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 12);
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 12);
         snprintf(buffer, sizeof(buffer), "%7.2f  C", (double)altimeterData.environment.temperature);
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 17);
-        snprintf(buffer, sizeof(buffer), "%7.2f atm", (double)(altimeterData.environment.pressure / 10132.5f));
-        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 30);
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 17);
+        snprintf(buffer, sizeof(buffer), "%7.2f atm", (double)(altimeterData.environment.pressure / 101325.0f));
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 30);
+        snprintf(buffer, sizeof(buffer), "%7.2f %%", (double)altimeterData.environment.humidity);
+        cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 43);
     }
-
-    snprintf(buffer, sizeof(buffer), "%7.2f %%", (double)altimeterData.environment.humidity);
-    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 10, 43);
-}
-
-void actionEnvironmentPage(struct page *page) {
-    page->state = !page->state;
 }
 
 void renderDirectionPage(struct page *page) {
@@ -261,16 +311,16 @@ void renderDirectionPage(struct page *page) {
     cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 25, 18);
     snprintf(buffer, sizeof(buffer), "%5d", gnssData.heading);
     cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 25, 23);
-    snprintf(buffer, sizeof(buffer), "%5.1f m/s", (double)gnssData.speed);
+    snprintf(buffer, sizeof(buffer), "%5.2f m/s", (double)gnssData.speed);
     cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 25, 37);
 }
 
 void renderGnssPage(struct page *page) {
     char buffer[32];
-    snprintf(buffer, sizeof(buffer), "Nr. sat: %d", gnssData.gnss.satellites);
-    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 43);
     snprintf(buffer, sizeof(buffer), "%s", gnssData.gnss.quality);
     cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 17);
     snprintf(buffer, sizeof(buffer), "%s", gnssData.gnss.fixStatus);
     cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 30);
+    snprintf(buffer, sizeof(buffer), "Nr. sat: %d", gnssData.gnss.satellites);
+    cfb_draw_text(DEVICE_DT_GET(DT_ALIAS(display)), buffer, 5, 43);
 }

@@ -50,6 +50,16 @@ static inline void adjustAltitude(const struct sensor_value *altitude, const str
     adjustedAltitude->val2 = (int32_t)((altitude_m - adjustedAltitude->val1) * 1000000);
 }
 
+static inline void calculateAbsoluteHumidity(const struct sensor_value *temp, const struct sensor_value *humidity, struct sensor_value *absHumidity) {
+    float temp_C = temp->val1 + temp->val2 / 1000000.0f;
+    float humidity_pct = humidity->val1 + humidity->val2 / 1000000.0f;
+
+    float abs_hum_g_m3 = (13.2447f * expf((17.67f * temp_C) / (temp_C + 243.5f)) * humidity_pct) / (temp_C + 273.15f);
+
+    absHumidity->val1 = (int32_t)abs_hum_g_m3;
+    absHumidity->val2 = (int32_t)((abs_hum_g_m3 - absHumidity->val1) * 1000000.0f);
+}
+
 atomic_t altimeterMissCount = ATOMIC_INIT(0);
 atomic_t altimeterLatencyUs = ATOMIC_INIT(0);
 atomic_t altimeterJitterUs = ATOMIC_INIT(0);
@@ -76,6 +86,7 @@ static void altimeterTask(void) {
     struct sensor_value pressure;
     struct sensor_value temp;
     struct sensor_value humidity;
+    struct sensor_value absHumidity;
     struct sensor_value altitude;
     struct sensor_value adjAltitude;
 
@@ -92,6 +103,7 @@ static void altimeterTask(void) {
             
             calculateAltitude(&pressure, &altitude);
             adjustAltitude(&altitude, &temp, &adjAltitude);
+            calculateAbsoluteHumidity(&temp, &humidity, &absHumidity);
 
             altimeter_data_t newReturnData = {
                 .altitude = altitude.val1,
@@ -100,6 +112,7 @@ static void altimeterTask(void) {
                     .pressure = (pressure.val1 + (pressure.val2 / 1000000.0f)) * 1000.0f,
                     .temperature = temp.val1 + (temp.val2 / 1000000.0f),
                     .humidity = humidity.val1 + (humidity.val2 / 1000000.0f),
+                    .absHumidity = absHumidity.val1 + (absHumidity.val2 / 1000000.0f),
                 },
             };
 
