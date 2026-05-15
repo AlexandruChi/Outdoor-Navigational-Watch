@@ -2,6 +2,8 @@
 #include <math.h>
 #include "altimeter.h"
 
+#include "SystemStats.h"
+
 static void altimeterTask(void);
 
 #define ALTIMETER_UPDATE_INTERVAL K_MSEC(200)
@@ -75,13 +77,15 @@ static void altimeterTask(void) {
     }
 
     int64_t interval = ALTIMETER_UPDATE_INTERVAL.ticks;
-    int64_t expected_wake_time = 0;
     int64_t next_wake_time = 0;
 
+    #if PRINT_STATS == 1
+    int64_t expected_wake_time = 0;
     uint64_t drift_current_us = 0;
     uint64_t drift_min_us = INT64_MAX;
     uint64_t drift_max_us = 0;
     uint64_t drift_us = 0;
+    #endif /* PRINT_STATS */
 
     struct sensor_value pressure;
     struct sensor_value temp;
@@ -122,6 +126,7 @@ static void altimeterTask(void) {
             }
         }
 
+        #if PRINT_STATS == 1
         drift_min_us = MIN(drift_min_us, drift_current_us);
         drift_max_us = MAX(drift_max_us, drift_current_us);
         drift_us = MAX(atomic_get(&altimeterLatencyUs), drift_current_us);
@@ -134,8 +139,15 @@ static void altimeterTask(void) {
         atomic_set(&altimeterJitterUs, drift_max_us - drift_min_us);
 
         expected_wake_time = next_wake_time;
+
+        #endif /* PRINT_STATS */
+
         k_sleep(K_TIMEOUT_ABS_TICKS(next_wake_time));
+
+        #if PRINT_STATS == 1
         drift_current_us = k_ticks_to_us_near64(k_uptime_ticks() - expected_wake_time);
+        #endif /* PRINT_STATS */
+
         next_wake_time += interval;
     }
 }

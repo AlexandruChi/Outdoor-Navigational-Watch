@@ -1,6 +1,8 @@
 #include "Ch7SegDisplay.h"
 #include <zephyr/drivers/gpio.h>
 
+#include "SystemStats.h"
+
 static void segmentDisplayTask(void);
 
 K_THREAD_DEFINE(segmentDisplayThread, 1024, segmentDisplayTask, NULL, NULL, NULL, 1, 0, 0);
@@ -210,14 +212,16 @@ static void segmentDisplayTask(void) {
     }
 
     int64_t interval = k_us_to_ticks_near64(SEGMENT_TIME_US);
-    int64_t expected_wake_time = 0;
     int64_t next_wake_time = 0;
     uint32_t segments = 0;
 
+    #if PRINT_STATS == 1
+    int64_t expected_wake_time = 0;
     uint64_t drift_current_us = 0;
     uint64_t drift_min_us = INT64_MAX;
     uint64_t drift_max_us = 0;
     uint64_t drift_us = 0;
+    #endif /* PRINT_STATS */
 
     while (1) {
         if (!segments) {
@@ -235,6 +239,7 @@ static void segmentDisplayTask(void) {
                     setSegment(SEGMENT_NONE);
                 }
 
+                #if PRINT_STATS == 1
                 drift_min_us = MIN(drift_min_us, drift_current_us);
                 drift_max_us = MAX(drift_max_us, drift_current_us);
                 drift_us = MAX(atomic_get(&segmentDisplayLatencyUs), drift_current_us);
@@ -247,8 +252,15 @@ static void segmentDisplayTask(void) {
                 atomic_set(&segmentDisplayJitterUs, drift_max_us - drift_min_us);
 
                 expected_wake_time = next_wake_time;
+
+                #endif /* PRINT_STATS */
+
                 k_sleep(K_TIMEOUT_ABS_TICKS(next_wake_time));
+
+                #if PRINT_STATS == 1
                 drift_current_us = k_ticks_to_us_near64(k_uptime_ticks() - expected_wake_time);
+                #endif /* PRINT_STATS */
+                
                 next_wake_time += interval;
             }
         } 

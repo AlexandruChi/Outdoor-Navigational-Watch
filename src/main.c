@@ -1,15 +1,10 @@
+#include "SystemStats.h"
+
+#if PRINT_STATS == 1
 #include <zephyr/kernel.h>
-#include <zephyr/debug/thread_analyzer.h>
 
+#if LOG_HEAP == 1
 extern struct sys_heap _system_heap;
-
-extern atomic_t segmentDisplayMissCount;
-extern atomic_t segmentDisplayLatencyUs;
-extern atomic_t segmentDisplayJitterUs;
-
-extern atomic_t altimeterMissCount;
-extern atomic_t altimeterLatencyUs;
-extern atomic_t altimeterJitterUs;
 
 void log_heap(struct k_timer *timer_id) {
     struct sys_memory_stats stats;
@@ -18,10 +13,13 @@ void log_heap(struct k_timer *timer_id) {
     }
 }
 
-void log_memory(struct k_timer *timer_id) {
-    thread_analyzer_print(0);
-    printk("\n");
-}
+K_TIMER_DEFINE(log_heap_timer, log_heap, NULL);
+
+#endif /* LOG_HEAP */
+
+#if LOG_DEADLINE == 1
+extern atomic_t segmentDisplayMissCount;
+extern atomic_t altimeterMissCount;
 
 void log_deadline(struct k_timer *timer_id) {
     int64_t segmentDisplayMisses = atomic_get(&segmentDisplayMissCount);
@@ -36,15 +34,13 @@ void log_deadline(struct k_timer *timer_id) {
     printk("\n");
 }
 
-void log_jitter(struct k_timer *timer_id) {
-    int64_t segmentDisplayJitterUsVal = atomic_get(&segmentDisplayJitterUs);
-    int64_t altimeterJitterUsVal = atomic_get(&altimeterJitterUs);
+K_TIMER_DEFINE(log_deadline_timer, log_deadline, NULL);
 
-    printk("Jitter: \n");
-    printk(" segment display: %lld us\n", segmentDisplayJitterUsVal);
-    printk(" altimeter: %lld us\n", altimeterJitterUsVal);
-    printk("\n");
-}
+#endif /* LOG_DEADLINE */
+
+#if LOG_LATENCY == 1
+extern atomic_t segmentDisplayLatencyUs;
+extern atomic_t altimeterLatencyUs;
 
 void log_latency(struct k_timer *timer_id) {
     int64_t segmentDisplayLatencyUsVal = atomic_get(&segmentDisplayLatencyUs);
@@ -59,20 +55,70 @@ void log_latency(struct k_timer *timer_id) {
     printk("\n");
 }
 
-K_TIMER_DEFINE(log_heap_timer, log_heap, NULL);
-K_TIMER_DEFINE(log_memory_timer, log_memory, NULL);
-K_TIMER_DEFINE(log_deadline_timer, log_deadline, NULL);
-K_TIMER_DEFINE(log_jitter_timer, log_jitter, NULL);
 K_TIMER_DEFINE(log_latency_timer, log_latency, NULL);
+
+#endif /* LOG_LATENCY */
+
+#if LOG_JITTER == 1
+extern atomic_t segmentDisplayJitterUs;
+extern atomic_t altimeterJitterUs;
+
+void log_jitter(struct k_timer *timer_id) {
+    int64_t segmentDisplayJitterUsVal = atomic_get(&segmentDisplayJitterUs);
+    int64_t altimeterJitterUsVal = atomic_get(&altimeterJitterUs);
+
+    printk("Jitter: \n");
+    printk(" segment display: %lld us\n", segmentDisplayJitterUsVal);
+    printk(" altimeter: %lld us\n", altimeterJitterUsVal);
+    printk("\n");
+}
+
+K_TIMER_DEFINE(log_jitter_timer, log_jitter, NULL);
+
+#endif /* LOG_JITTER */
+
+#if LOG_MEMORY == 1
+#include <zephyr/debug/thread_analyzer.h>
+
+void log_memory(struct k_timer *timer_id) {
+    thread_analyzer_print(0);
+    printk("\n");
+}
+
+K_TIMER_DEFINE(log_memory_timer, log_memory, NULL);
+
+#endif /* LOG_MEMORY */
 
 int main(void) {
     printk("Tick Rate: %d Hz\n\n", CONFIG_SYS_CLOCK_TICKS_PER_SEC);
 
+    #if LOG_HEAP == 1
     k_timer_start(&log_heap_timer, K_MINUTES(1), K_MINUTES(1));
+    #endif /* LOG_HEAP */
+
+    #if LOG_MEMORY == 1
     k_timer_start(&log_memory_timer, K_MINUTES(1), K_MINUTES(1));
+    #endif /* LOG_MEMORY */
+
+    #if LOG_JITTER == 1
     k_timer_start(&log_jitter_timer, K_MINUTES(1), K_MINUTES(1));
+    #endif /* LOG_JITTER */
+
+    #if LOG_DEADLINE == 1
     k_timer_start(&log_deadline_timer, K_SECONDS(10), K_SECONDS(10));
+    #endif /* LOG_DEADLINE */
+
+    #if LOG_LATENCY == 1
     k_timer_start(&log_latency_timer, K_SECONDS(10), K_SECONDS(10));
+    #endif /* LOG_LATENCY */
 
     return 0;
 }
+
+#else /* PRINT_STATS */
+
+int main(void) {
+    return 0;
+}
+
+#endif /* PRINT_STATS */
