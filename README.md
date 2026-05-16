@@ -3,7 +3,7 @@
 The project aims at building a watch designed to offer real-time information about the current UTC time, geographical position, and directional orientation, as well as environmental data including atmospheric pressure, calculated altitude, ambient temperature, ambient humidity.
 
 <p align="center">
-  <img src="./doc/images/prototype.jpeg" alt="Prototype" width="500">
+  <img src="./doc/images/prototype.jpeg" alt="Prototype" width="100%">
 </p>
 
 ## Hardware
@@ -24,8 +24,6 @@ The project aims at building a watch designed to offer real-time information abo
 ### User Input
 **4 buttons** (left to right)
 
-<img src="./doc/images/input.png" alt="Input" height="300" style="margin: 5px;">
-
 * **Power button**
     * **Press:** Toggle the display on and off
     * **Hold:** Show battery voltage
@@ -41,9 +39,11 @@ The project aims at building a watch designed to offer real-time information abo
 
 ### Connections
 
-The pico 2 board is powered using 5V (external source, USB or a 9V battery connected to the voltage step-down).  
+The Pico 2 board is powered using 5V (external source, USB or a 9V battery connected to the voltage step-down).  
 The sensors and displays are powered from the Pico 3V3 rail.  
 Power requirement: **~0.5W**
+
+<img src="./doc/images/schematics.png" alt="Schematics" width="100%">
 
 * **GPIO:**
     * 4 buttons for the keypad (10 μF capacitor, internal pull up, active low)
@@ -66,9 +66,6 @@ Power requirement: **~0.5W**
 
 * **ADC2:**
     * Battery
-
-<img src="./doc/images/schematics.png" alt="Schematics" width="500">
-
 
 ## Software
 
@@ -229,26 +226,27 @@ Max latency in last 10 seconds:
 
 ## User Interface
 
-### Time, Date and Status pages
+```c
+struct page {
+    char title[13];
+    void (*action)(struct page *page);
+    void (*render)(struct page *page);
+    uint8_t state;
+};
 
-<img src="./doc/images/time.png" alt="Time" width="200" style="margin: 5px;">
-<img src="./doc/images/date.png" alt="Date" width="200" style="margin: 5px;">
-<img src="./doc/images/status.png" alt="Status" width="200" style="margin: 5px;">
+struct page pages[7];
+```
 
-### Position page
+* **Title:** character string always displayed in the top-left
+* **Action:** called when presing the action button, updates the state for certain pages
+* **Render:** converts the data read from sensors into the required type based on the page state
+* **State:** stores the current state of the page
 
-<img src="./doc/images/position0.png" alt="Position 0" width="200" style="margin: 5px;">
-<img src="./doc/images/position1.png" alt="Position 1" width="200" style="margin: 5px;">
-<img src="./doc/images/position2.png" alt="Position 2" width="200" style="margin: 5px;">
+Pressing the left and right navigation keys increases or decreases the pointer to the current page. If at the end of the array it moves to the other side.
+The state of the page is kept in mememory when the display is off.  
 
-### Altitude page
-
-<img src="./doc/images/altitude0.png" alt="Altitude 0" width="200" style="margin: 5px;">
-<img src="./doc/images/altitude1.png" alt="Altitude 1" width="200" style="margin: 5px;">
-<img src="./doc/images/altitude2.png" alt="Altitude 2" width="200" style="margin: 5px;">
-
-### Environment and Direction
-
-<img src="./doc/images/environment0.png" alt="Environment 0" width="200" style="margin: 5px;">
-<img src="./doc/images/environment1.png" alt="Environment 1" width="200" style="margin: 5px;">
-<img src="./doc/images/direction.png" alt="Direction" width="200" style="margin: 5px;">
+<p align="center">
+  <img src="./doc/images/time.png" alt="Time" width="200"> <img src="./doc/images/position0.png" alt="Position 0" width="200"> <img src="./doc/images/altitude0.png" alt="Altitude 0" width="200"> <img src="./doc/images/environment0.png" alt="Environment 0" width="200">  
+  <img src="./doc/images/date.png" alt="Date" width="200"> <img src="./doc/images/position1.png" alt="Position 1" width="200"> <img src="./doc/images/altitude1.png" alt="Altitude 1" width="200"> <img src="./doc/images/environment1.png" alt="Environment 1" width="200">  
+  <img src="./doc/images/status.png" alt="Status" width="200"> <img src="./doc/images/position2.png" alt="Position 2" width="200"> <img src="./doc/images/altitude2.png" alt="Altitude 2" width="200"> <img src="./doc/images/direction.png" alt="Direction" width="200">
+</p>
