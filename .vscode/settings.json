@@ -20,6 +20,7 @@
         "prechargep",
         "printk",
         "raspberrypi",
+        "sysworkq",
         "UAOL",
         "workqueue",
         "XOUT",

@@ -2,10 +2,14 @@
 
 The project aims at building a watch designed to offer real-time information about the current UTC time, geographical position, and directional orientation, as well as environmental data including atmospheric pressure, calculated altitude, ambient temperature, ambient humidity.
 
+<p align="center">
+  <img src="./doc/images/prototype.jpeg" alt="Prototype" width="500">
+</p>
+
 ## Hardware
 
 ### Processing Unit
-* **Microcontroller:** Raspberry Pi Pico 2W (RP2350, utilising dual ARM Cortex-M33 cores)
+* **Microcontroller:** Raspberry Pi Pico 2W (RP2350A, Cortex-M33)
 
 ### Sensors
 * **GNSS Module:** ATGM336H-5N (Geographical Position & UTC Time)
@@ -13,12 +17,15 @@ The project aims at building a watch designed to offer real-time information abo
 * **Atmospheric Sensor:** BME280 (Atmospheric Pressure, Ambient Temperature, Ambient Humidity)
 
 ### Display
-* **Main Screen:** GME12864 (128x64 Monochrome OLED)
+* **Main Screen:** SSD1306 (128x64 Monochrome OLED)
 * **Compass & Battery:** 7-Segment Display
 * **Status Indicator:** Coloured LED
 
 ### User Input
 **4 buttons** (left to right)
+
+<img src="./doc/images/input.png" alt="Input" height="300" style="margin: 5px;">
+
 * **Power button**
     * **Press:** Toggle the display on and off
     * **Hold:** Show battery voltage
@@ -31,6 +38,37 @@ The project aims at building a watch designed to offer real-time information abo
 * **Action button**
     * **Press:** Change displayed unit
     * **Hold:** Toggle compass reading
+
+### Connections
+
+The pico 2 board is powered using 5V (external source, USB or a 9V battery connected to the voltage step-down).  
+The sensors and displays are powered from the Pico 3V3 rail.  
+Power requirement: **~0.5W**
+
+* **GPIO:**
+    * 4 buttons for the keypad (10 μF capacitor, internal pull up, active low)
+    * 6 pins for 7-segment display (100 Ω resistor, active high)
+    * 1 interrupt pin for qmc5883l (active high)
+    * 1 LED pin (100 Ω resistor, active high)
+
+* **I<sup>2</sup>C0:** (100 kHz)
+    * QMC5883L
+    * SSD1306
+
+* **I<sup>2</sup>C1:** (100 kHz)
+    * BME280
+
+* **UART0:** (9600 bps)
+    * ATGM336H-5N
+
+* **UART1:** (115200 bps)
+    * Zephyr console / shell
+
+* **ADC2:**
+    * Battery
+
+<img src="./doc/images/schematics.png" alt="Schematics" width="500">
+
 
 ## Software
 
@@ -54,24 +92,15 @@ The project aims at building a watch designed to offer real-time information abo
 * **Status Indicator:** Driven via GPIO for LED control
 
 ### Threads
-* **Main:**
-    * Initialises the timers and workqueue for printing the system info in the console based on *SystemStats.h* file configurations:
-        * System heap usage
-        * Stack and CPU usage for each thread
-        * For *altimeter* and *segment display* threads:
-            * deadline misses in the last *10 seconds*
-            * maximum latency in the last *10 seconds*
-            * jitter during the entire runtime
-
-* **QMC5883L:** (priority **7**, period **100 ms** / **10 Hz**, **hardware interrupt**)
+* **QMC5883L:** (priority **7**, period **100ms** / **10Hz**, **hardware interrupt**)
     * Implements the logic required to configure and read data from the *magnetometer*
     * Calculates heading based on read values
     * Calculates and sets calibration values
 
-* **Altimeter:** (priority **7**, period **200 ms** / **5 Hz**)
+* **Altimeter:** (priority **7**, period **200ms** / **5Hz**)
     * Reads the data from the *atmospheric sensor* and calculates the required values: altitude, adjusted altitude and absolute humidity
 
-* **Compass:** (priority **7**, period **250 ms** / **4 Hz** or **on key event**)
+* **Compass:** (priority **7**, period **250ms** / **4Hz** or **on key event**)
     * Processes the user inputs for the different compass actions:
         * Read and display heading on 7-segment display
         * Send commands to sensor thread for calibration
@@ -79,22 +108,22 @@ The project aims at building a watch designed to offer real-time information abo
 * **GNSS:** (priority **7**, **UART interrupt**)
     * Receives and processes the GNSS data
 
-* **Keypad:** (priority **3**, period **10 ms** / **100 Hz** or **on hardware interrupt**)
+* **Keypad:** (priority **3**, period **10ms** / **10Hz** or **on hardware interrupt**)
     * Implement the state machine for each user input key
     * Send event for the different key states:
-        * Key press for less then *500 ms*
-        * Key heald for more than *500 ms*
-        * key released after more than *500 ms*
+        * Key press for less then *500ms*
+        * Key held for more than *500ms*
+        * key released after more than *500ms*
 
-* **Battery:** (priority **10**, period **1 s** / **1 Hz** or **on key event**)
+* **Battery:** (priority **10**, period **1s** / **1Hz** or **on key event**)
     * Reads battery voltage and displays it on the 7-segment display when holding the key
     * Measures the battery voltage every second
-    * Turns on the status LED when voltage drops below *8 V*
+    * Turns on the status LED when voltage drops below *8V*
 
-* **Segment Display:** (priority **1**, period **500 μs** / **2 kHz**)
+* **Segment Display:** (priority **1**, period **500μs** / **2kHz**)
     * Displays a number on the 7-segment display based on the provided format
 
-* **Display:** (priority **5**, period **100 ms** / **10 Hz** or **on key event**)
+* **Display:** (priority **5**, period **100ms** / **10Hz** or **on key event**)
     * Processes the user input for the different display actions:
         * Toggle display on or off
         * Change displayed page
@@ -122,7 +151,7 @@ Generated by the *keypad* thread:
     * **Compass reset start:** right key held → start calibration reset timer
     * **Compass reset stop:** right key released → cancel calibration
 
-### Synchronisation
+### Synchronization
 * **Key input:**
     * The state of the hardware key (*pressed* or *released*) is set using *atomic variables* in the interrupt routine on the rising and falling edge
     * Thread is woken up using a *semaphore* set in the interrupt routine
@@ -132,13 +161,94 @@ Generated by the *keypad* thread:
     * Initialises calibration or reset calibration values by setting different *semaphores* that are read by *qmc5883l* thread
 
 * **7-segment display:**
-    * Display status, value and format is set bu other threads using *shared memory*, synchronised using a *mutex*
+    * Display status, value and format is set by other threads using *shared memory*, synchronized using a *mutex*
     * Thread is woken up by reading a *semaphore* set when turning the display on
     * Before displaying data, the other threads check if the display is off
 
-* **GNSS:**
+* **GNSS data:**
     * GNSS data is copied from the callback function to the global memory using a *mutex* for synchronization
     * A *semaphore* is used to signal to the *GNSS* thread that new data has been received and can be processed
 
-* **Display data**
-    * The display thread reads the data from the *altimeter* and *GNSS* thread's shared memory using *mutexes* fro synchronisation
+* **Display data:**
+    * The display thread reads the data from the *altimeter* and *GNSS* thread's shared memory using *mutexes* for synchronization
+
+### System monitoring
+
+Send data periodically over the UART console. Configured using macros in the *SystemStats.h* file.
+
+* **PRINT_STATS:** enable / disable system monitoring
+    * **LOG_HEAP:** print system heap usage
+    * **LOG_MEMORY:** stack and CPU usage for each thread
+    * For *altimeter* and *segment display* threads these values are calculated when system monitoring is enabled and printed based on the following macros are set:
+        * **LOG_DEADLINE:** deadline misses in the last *10 seconds*
+        * **LOG_LATENCY:** maximum latency in the last *10 seconds*
+        * **LOG_JITTER:** jitter during the entire runtime
+
+System monitoring output:
+```
+Heap: 1028/4096 bytes used (Max: 1028)
+
+Thread analyze:
+ segmentDisplay      : STACK: unused 792 usage 232 / 1024 (22 %); CPU: 3 %
+                     : Total CPU cycles used: 314177009
+ qmc5883l            : STACK: unused 696 usage 328 / 1024 (32 %); CPU: 0 %
+                     : Total CPU cycles used: 8753451
+ keypad              : STACK: unused 800 usage 224 / 1024 (21 %); CPU: 0 %
+                     : Total CPU cycles used: 364788
+ gnss                : STACK: unused 712 usage 312 / 1024 (30 %); CPU: 0 %
+                     : Total CPU cycles used: 2809
+ display             : STACK: unused 408 usage 616 / 1024 (60 %); CPU: 1 %
+                     : Total CPU cycles used: 98032464
+ compass             : STACK: unused 752 usage 272 / 1024 (26 %); CPU: 0 %
+                     : Total CPU cycles used: 957527
+ battery             : STACK: unused 728 usage 296 / 1024 (28 %); CPU: 0 %
+                     : Total CPU cycles used: 1639368
+ altimeter           : STACK: unused 544 usage 480 / 1024 (46 %); CPU: 0 %
+                     : Total CPU cycles used: 22958862
+ sysworkq            : STACK: unused 536 usage 488 / 1024 (47 %); CPU: 0 %
+                     : Total CPU cycles used: 15563534
+ logging             : STACK: unused 248 usage 520 / 768 (67 %); CPU: 0 %
+                     : Total CPU cycles used: 7729337
+ idle                : STACK: unused 256 usage 64 / 320 (20 %); CPU: 94 %
+                     : Total CPU cycles used: 8484858924
+ ISR0                : STACK: unused 1752 usage 296 / 2048 (14 %); CPU: 0 %
+                     : Total CPU cycles used: 0
+
+Jitter: 
+ segment display: 300 us
+ altimeter: 1800 us
+
+Deadline misses in last 10 seconds: 
+ segment display: 11
+ altimeter: 1
+
+Max latency in last 10 seconds: 
+ segment display: 300 us
+ altimeter: 1700 us
+```
+
+## User Interface
+
+### Time, Date and Status pages
+
+<img src="./doc/images/time.png" alt="Time" width="200" style="margin: 5px;">
+<img src="./doc/images/date.png" alt="Date" width="200" style="margin: 5px;">
+<img src="./doc/images/status.png" alt="Status" width="200" style="margin: 5px;">
+
+### Position page
+
+<img src="./doc/images/position0.png" alt="Position 0" width="200" style="margin: 5px;">
+<img src="./doc/images/position1.png" alt="Position 1" width="200" style="margin: 5px;">
+<img src="./doc/images/position2.png" alt="Position 2" width="200" style="margin: 5px;">
+
+### Altitude page
+
+<img src="./doc/images/altitude0.png" alt="Altitude 0" width="200" style="margin: 5px;">
+<img src="./doc/images/altitude1.png" alt="Altitude 1" width="200" style="margin: 5px;">
+<img src="./doc/images/altitude2.png" alt="Altitude 2" width="200" style="margin: 5px;">
+
+### Environment and Direction
+
+<img src="./doc/images/environment0.png" alt="Environment 0" width="200" style="margin: 5px;">
+<img src="./doc/images/environment1.png" alt="Environment 1" width="200" style="margin: 5px;">
+<img src="./doc/images/direction.png" alt="Direction" width="200" style="margin: 5px;">
