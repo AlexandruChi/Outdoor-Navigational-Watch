@@ -21,6 +21,7 @@
         "printk",
         "raspberrypi",
         "UAOL",
+        "workqueue",
         "XOUT",
         "YOUT",
         "ZOUT"

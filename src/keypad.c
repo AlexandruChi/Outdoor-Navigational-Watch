@@ -56,9 +56,9 @@ void actionKeyCallback(const struct device *dev, struct gpio_callback *cb, uint3
     k_sem_give(&keypadSem);
 }
 
-#define STATE_RELEASE 0
-#define STATE_PRESS 1
-#define STATE_HELD 2
+#define STATE_RELEASE 0b00
+#define STATE_PRESS 0b01
+#define STATE_HELD 0b10
 
 static void keypadTask(void) {
     k_thread_name_set(keypadThread, "keypad");
@@ -109,7 +109,10 @@ static void keypadTask(void) {
     uint8_t actionKeyState = STATE_RELEASE;
 
     while (1) {
-        k_sem_take(&keypadSem, K_MSEC(10));
+        bool keyPressed = batteryKeyState | leftKeyState | rightKeyState | actionKeyState;
+        keyPressed &= 0b01;
+
+        k_sem_take(&keypadSem, keyPressed ? K_MSEC(10) : K_FOREVER);
         uint64_t now = k_uptime_get();
         
         bool bHold = atomic_get(&batteryKeyHold);

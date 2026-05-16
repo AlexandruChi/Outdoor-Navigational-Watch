@@ -10,7 +10,6 @@ static void altimeterTask(void);
 #define ALTIMETER_MISS_US 100
 
 K_THREAD_DEFINE(altimeterThread, 1024, altimeterTask, NULL, NULL, NULL, 7, 0, 0);
-K_MUTEX_DEFINE(altimeterMutex);
 K_MUTEX_DEFINE(returnAltimeterMutex);
 
 static altimeter_data_t returnData;

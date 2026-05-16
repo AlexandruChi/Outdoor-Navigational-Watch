@@ -94,7 +94,7 @@ static void displayTask(void) {
     bool displayOn = false;
 
     while (1) {
-        uint32_t events = k_event_wait(&navigationEvent, (KEY_EVT_NAVIGATION_POWER | KEY_EVT_NAVIGATION_LEFT | KEY_EVT_NAVIGATION_RIGHT | KEY_EVT_NAVIGATION_SELECT), false, DISPLAY_UPDATE_INTERVAL);
+        uint32_t events = k_event_wait(&navigationEvent, (KEY_EVT_NAVIGATION_POWER | KEY_EVT_NAVIGATION_LEFT | KEY_EVT_NAVIGATION_RIGHT | KEY_EVT_NAVIGATION_SELECT), false, displayOn ? DISPLAY_UPDATE_INTERVAL : K_FOREVER);
         k_event_set(&navigationEvent, 0);
 
         if (displayOn == false) {

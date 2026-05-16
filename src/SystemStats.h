@@ -9,4 +9,6 @@
 #define LOG_JITTER 1
 #define LOG_LATENCY 1
 
+#define PRINT_CALIBRATION_VALUES 0
+
 #endif /* SYSTEMSTATS_H */

@@ -6,11 +6,17 @@
 #if LOG_HEAP == 1
 extern struct sys_heap _system_heap;
 
-void log_heap(struct k_timer *timer_id) {
+void print_heap(struct k_work *work) {
     struct sys_memory_stats stats;
     if (!sys_heap_runtime_stats_get(&_system_heap, &stats)) {
         printk("Heap: %zu/%zu bytes used (Max: %zu)\n\n", stats.allocated_bytes, stats.free_bytes + stats.allocated_bytes, stats.max_allocated_bytes);
     }
+}
+
+K_WORK_DEFINE(print_heap_work, print_heap);
+
+void log_heap(struct k_timer *timer_id) {
+    k_work_submit(&print_heap_work);
 }
 
 K_TIMER_DEFINE(log_heap_timer, log_heap, NULL);
@@ -21,17 +27,29 @@ K_TIMER_DEFINE(log_heap_timer, log_heap, NULL);
 extern atomic_t segmentDisplayMissCount;
 extern atomic_t altimeterMissCount;
 
+atomic_t segmentDisplayMisses;
+atomic_t altimeterMisses;
+
+void print_deadline(struct k_work *work) {
+    int64_t segmentDisplayMissesVal = atomic_get(&segmentDisplayMisses);
+    int64_t altimeterMissesVal = atomic_get(&altimeterMisses);
+
+    printk("Deadline misses in last 10 seconds: \n");
+    printk(" segment display: %lld\n", segmentDisplayMissesVal);
+    printk(" altimeter: %lld\n", altimeterMissesVal);
+    printk("\n");
+}
+
+K_WORK_DEFINE(deadline_work, print_deadline);
+
 void log_deadline(struct k_timer *timer_id) {
-    int64_t segmentDisplayMisses = atomic_get(&segmentDisplayMissCount);
-    int64_t altimeterMisses = atomic_get(&altimeterMissCount);
+    atomic_set(&segmentDisplayMisses, atomic_get(&segmentDisplayMissCount));
+    atomic_set(&altimeterMisses, atomic_get(&altimeterMissCount));
 
     atomic_set(&segmentDisplayMissCount, 0);
     atomic_set(&altimeterMissCount, 0);
 
-    printk("Deadline misses in last 10 seconds: \n");
-    printk(" segment display: %lld\n", segmentDisplayMisses);
-    printk(" altimeter: %lld\n", altimeterMisses);
-    printk("\n");
+    k_work_submit(&deadline_work);
 }
 
 K_TIMER_DEFINE(log_deadline_timer, log_deadline, NULL);
@@ -42,17 +60,29 @@ K_TIMER_DEFINE(log_deadline_timer, log_deadline, NULL);
 extern atomic_t segmentDisplayLatencyUs;
 extern atomic_t altimeterLatencyUs;
 
+atomic_t segmentDisplayMaxLatencyUs;
+atomic_t altimeterMaxLatencyUs;
+
+void print_latency(struct k_work *work) {
+    int64_t segmentDisplayMaxLatencyUsVal = atomic_get(&segmentDisplayMaxLatencyUs);
+    int64_t altimeterMaxLatencyUsVal = atomic_get(&altimeterMaxLatencyUs);
+
+    printk("Max latency in last 10 seconds: \n");
+    printk(" segment display: %lld us\n", segmentDisplayMaxLatencyUsVal);
+    printk(" altimeter: %lld us\n", altimeterMaxLatencyUsVal);
+    printk("\n");
+}
+
+K_WORK_DEFINE(latency_work, print_latency);
+
 void log_latency(struct k_timer *timer_id) {
-    int64_t segmentDisplayLatencyUsVal = atomic_get(&segmentDisplayLatencyUs);
-    int64_t altimeterLatencyUsVal = atomic_get(&altimeterLatencyUs);
+    atomic_set(&segmentDisplayMaxLatencyUs, atomic_get(&segmentDisplayLatencyUs));
+    atomic_set(&altimeterMaxLatencyUs, atomic_get(&altimeterLatencyUs));
 
     atomic_set(&segmentDisplayLatencyUs, 0);
     atomic_set(&altimeterLatencyUs, 0);
 
-    printk("Max latency in last 10 seconds: \n");
-    printk(" segment display: %lld us\n", segmentDisplayLatencyUsVal);
-    printk(" altimeter: %lld us\n", altimeterLatencyUsVal);
-    printk("\n");
+    k_work_submit(&latency_work);
 }
 
 K_TIMER_DEFINE(log_latency_timer, log_latency, NULL);
@@ -63,7 +93,7 @@ K_TIMER_DEFINE(log_latency_timer, log_latency, NULL);
 extern atomic_t segmentDisplayJitterUs;
 extern atomic_t altimeterJitterUs;
 
-void log_jitter(struct k_timer *timer_id) {
+void print_jitter(struct k_work *work) {
     int64_t segmentDisplayJitterUsVal = atomic_get(&segmentDisplayJitterUs);
     int64_t altimeterJitterUsVal = atomic_get(&altimeterJitterUs);
 
@@ -73,6 +103,12 @@ void log_jitter(struct k_timer *timer_id) {
     printk("\n");
 }
 
+K_WORK_DEFINE(jitter_work, print_jitter);
+
+void log_jitter(struct k_timer *timer_id) {
+    k_work_submit(&jitter_work);
+}
+
 K_TIMER_DEFINE(log_jitter_timer, log_jitter, NULL);
 
 #endif /* LOG_JITTER */
@@ -80,9 +116,15 @@ K_TIMER_DEFINE(log_jitter_timer, log_jitter, NULL);
 #if LOG_MEMORY == 1
 #include <zephyr/debug/thread_analyzer.h>
 
-void log_memory(struct k_timer *timer_id) {
+void print_memory(struct k_work *work) {
     thread_analyzer_print(0);
     printk("\n");
+}
+
+K_WORK_DEFINE(memory_work, print_memory);
+
+void log_memory(struct k_timer *timer_id) {
+    k_work_submit(&memory_work);
 }
 
 K_TIMER_DEFINE(log_memory_timer, log_memory, NULL);

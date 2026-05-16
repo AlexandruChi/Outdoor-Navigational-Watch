@@ -4,14 +4,13 @@
 #include <math.h>
 #include "keypad.h"
 #include "Ch7SegDisplay.h"
+#include "SystemStats.h"
 
 static void compassTask(void);
 static void qmc5883lTask(void);
 
 #define CALIBRATION_SECONDS 30
 #define RESET_SECONDS 5
-
-#define PRINT_CALIBRATION_VALUES 0
 
 K_THREAD_DEFINE(compassThread, 1024, compassTask, NULL, NULL, NULL, 7, 0, 0);
 K_THREAD_DEFINE(qmc5883lThread, 1024, qmc5883lTask, NULL, NULL, NULL, 7, 0, 0);
@@ -231,6 +230,7 @@ static void qmc5883lTask(void) {
             float xCalibrated = ((float)x - calibration.offset.x) * calibration.scale.x;
             float yCalibrated = ((float)y - calibration.offset.y) * calibration.scale.y;
 
+            // Y Axis N, X Axis E, Z Axis UP
             float heading_rad = atan2f(-xCalibrated, yCalibrated);
             float heading_deg = heading_rad * (180.0f / 3.14159265f);
 
