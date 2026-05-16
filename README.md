@@ -238,12 +238,12 @@ struct page pages[7];
 ```
 
 * **Title:** character string always displayed in the top-left
-* **Action:** called when presing the action button, updates the state for certain pages
+* **Action:** called when pressing the action button, updates the state for certain pages
 * **Render:** converts the data read from sensors into the required type based on the page state
 * **State:** stores the current state of the page
 
 Pressing the left and right navigation keys increases or decreases the pointer to the current page. If at the end of the array it moves to the other side.
-The state of the page is kept in mememory when the display is off.  
+The state of the page is kept in memory when the display is off.  
 
 <p align="center">
   <img src="./doc/images/time.png" alt="Time" width="200"> <img src="./doc/images/position0.png" alt="Position 0" width="200"> <img src="./doc/images/altitude0.png" alt="Altitude 0" width="200"> <img src="./doc/images/environment0.png" alt="Environment 0" width="200">  
